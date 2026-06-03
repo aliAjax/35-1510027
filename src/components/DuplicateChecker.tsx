@@ -66,8 +66,9 @@ export const DuplicateChecker = () => {
     if (entryId) {
       keepEntry(groupId, entryId);
       setSelectedEntries((prev) => {
-        const { [groupId]: _, ...rest } = prev;
-        return rest;
+        const next = { ...prev };
+        delete next[groupId];
+        return next;
       });
     }
   };
@@ -77,8 +78,9 @@ export const DuplicateChecker = () => {
     if (entryId) {
       mergeEntries(groupId, entryId);
       setSelectedEntries((prev) => {
-        const { [groupId]: _, ...rest } = prev;
-        return rest;
+        const next = { ...prev };
+        delete next[groupId];
+        return next;
       });
     }
   };

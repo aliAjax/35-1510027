@@ -1026,20 +1026,40 @@ export const useEntryStore = create<EntryStore>()(
           if (!a || !b) return false;
           const normA = normalize(a);
           const normB = normalize(b);
+          if (!normA || !normB) return false;
           if (normA === normB) return true;
-          if (normA.includes(normB) || normB.includes(normA)) return true;
-          return false;
+          const shorter = normA.length < normB.length ? normA : normB;
+          const longer = normA.length < normB.length ? normB : normA;
+          if (shorter.length < 2) return false;
+          if (!longer.includes(shorter)) return false;
+          const ratio = shorter.length / longer.length;
+          return ratio >= 0.5;
         };
 
         const isUrlMatch = (a: string, b: string): boolean => {
           if (!a || !b) return false;
           const urlA = normalizeUrl(a);
           const urlB = normalizeUrl(b);
-          return urlA === urlB || urlA.includes(urlB) || urlB.includes(urlA);
+          if (!urlA || !urlB) return false;
+          if (urlA === urlB) return true;
+          const shorter = urlA.length < urlB.length ? urlA : urlB;
+          const longer = urlA.length < urlB.length ? urlB : urlA;
+          if (shorter.length < 3) return false;
+          if (!longer.includes(shorter)) return false;
+          const ratio = shorter.length / longer.length;
+          return ratio >= 0.6;
         };
 
         const groups: DuplicateGroup[] = [];
         const usedIds = new Set<string>();
+
+        const prevIgnoredKeys = new Set<string>();
+        get().duplicateGroups.forEach((g) => {
+          if (g.ignored) {
+            const key = g.entries.map((e) => e.id).sort().join('|');
+            prevIgnoredKeys.add(key);
+          }
+        });
 
         for (let i = 0; i < entries.length; i++) {
           const entryA = entries[i];
@@ -1084,12 +1104,14 @@ export const useEntryStore = create<EntryStore>()(
           if (matches.length > 1) {
             usedIds.add(entryA.id);
             const totalScore = matches.length * 2 + reasons.length;
+            const groupKey = matches.map((e) => e.id).sort().join('|');
+            const wasIgnored = prevIgnoredKeys.has(groupKey);
             groups.push({
               id: generateId(),
               entries: matches,
               matchScore: totalScore,
               matchReasons: reasons,
-              ignored: false,
+              ignored: wasIgnored,
             });
           }
         }
