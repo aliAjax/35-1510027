@@ -58,6 +58,9 @@ export const useEntryStore = create<EntryStore>()(
       deleteEntry: (id) => {
         set((state) => ({
           entries: state.entries.filter((entry) => entry.id !== id),
+          readingPlan: state.readingPlan
+            .filter((item) => item.entryId !== id)
+            .map((item, idx) => ({ ...item, order: idx + 1 })),
         }));
       },
 
@@ -235,8 +238,11 @@ export const useEntryStore = create<EntryStore>()(
       },
 
       getTodayPlanCount: () => {
-        const { readingPlan } = get();
-        return readingPlan.filter((item) => item.status === 'planned').length;
+        const { readingPlan, entries } = get();
+        const entryIds = new Set(entries.map((e) => e.id));
+        return readingPlan.filter(
+          (item) => item.status === 'planned' && entryIds.has(item.entryId)
+        ).length;
       },
 
       addCustomTag: (name, color) => {
@@ -326,12 +332,15 @@ export const useEntryStore = create<EntryStore>()(
 
       getStats: () => {
         const { entries, readingPlan } = get();
+        const entryIds = new Set(entries.map((e) => e.id));
         return {
           total: entries.length,
           favorites: entries.filter((e) => e.favorite).length,
           unread: entries.filter((e) => e.readStatus === '未读').length,
           read: entries.filter((e) => e.readStatus === '已读').length,
-          todayPlan: readingPlan.filter((item) => item.status === 'planned').length,
+          todayPlan: readingPlan.filter(
+            (item) => item.status === 'planned' && entryIds.has(item.entryId)
+          ).length,
         };
       },
 
@@ -612,11 +621,15 @@ export const useEntryStore = create<EntryStore>()(
             filters: data.filters,
           }));
         } else {
-          set({
+          const newEntryIds = new Set(data.entries.map((e) => e.id));
+          set((state) => ({
             entries: data.entries,
             customTags: data.customTags,
             filters: data.filters,
-          });
+            readingPlan: state.readingPlan
+              .filter((item) => newEntryIds.has(item.entryId))
+              .map((item, idx) => ({ ...item, order: idx + 1 })),
+          }));
         }
       },
 
@@ -963,6 +976,7 @@ export const useEntryStore = create<EntryStore>()(
           entries: [],
           customTags: [],
           filters: { ...defaultFilters },
+          readingPlan: [],
         });
       },
     }),
@@ -987,6 +1001,12 @@ export const useEntryStore = create<EntryStore>()(
           })) || [];
           state.customTags = state.customTags || [];
           state.readingPlan = state.readingPlan || [];
+          if (state.readingPlan.length > 0 && state.entries.length > 0) {
+            const entryIds = new Set(state.entries.map((e) => e.id));
+            state.readingPlan = state.readingPlan
+              .filter((item) => entryIds.has(item.entryId))
+              .map((item, idx) => ({ ...item, order: idx + 1 }));
+          }
         }
       },
     }

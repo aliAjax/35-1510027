@@ -60,11 +60,11 @@ export const ReadingPlan = () => {
   );
 
   const grouped = useMemo(() => {
-    const planned = sortedPlan.filter((i) => i.status === 'planned');
-    const done = sortedPlan.filter((i) => i.status === 'done');
-    const skipped = sortedPlan.filter((i) => i.status === 'skipped');
+    const planned = sortedPlan.filter((i) => i.status === 'planned' && entryMap.has(i.entryId));
+    const done = sortedPlan.filter((i) => i.status === 'done' && entryMap.has(i.entryId));
+    const skipped = sortedPlan.filter((i) => i.status === 'skipped' && entryMap.has(i.entryId));
     return { planned, done, skipped };
-  }, [sortedPlan]);
+  }, [sortedPlan, entryMap]);
 
   const currentList = grouped[activeTab];
   const hasCompleted = grouped.done.length > 0 || grouped.skipped.length > 0;
