@@ -7,12 +7,14 @@ import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS } from '../t
 type ImportMode = 'text' | 'csv';
 
 export const BatchImport = () => {
-  const { isBatchImportOpen, closeBatchImport, parseBatchText, parseBatchCSV, batchImportEntries } = useEntryStore();
+  const { isBatchImportOpen, closeBatchImport, parseBatchText, parseBatchCSV, batchImportEntries, customTags } = useEntryStore();
   const [importMode, setImportMode] = useState<ImportMode>('text');
   const [inputText, setInputText] = useState('');
   const [importResult, setImportResult] = useState<BatchImportResult | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const customTagMap = new Map(customTags.map((t) => [t.id, t]));
 
   const openModal = () => {
     setIsAnimating(true);
@@ -153,10 +155,10 @@ export const BatchImport = () => {
                       格式说明：每行一条数据，字段用逗号或制表符分隔，顺序为：
                     </p>
                     <code className="block text-xs bg-blue-100 p-2 rounded text-blue-800">
-                      作品名, CP名, 类型, 链接, 作者, 状态, 标签, 阅读状态, 备注, 收藏
+                      作品名, CP名, 类型, 链接, 作者, 状态, 标签, 自定义标签, 阅读状态, 备注, 收藏
                     </code>
                     <p className="text-xs text-blue-600 mt-2">
-                      类型可选：同人文、同人漫、视频、音频、图、其他 | 状态可选：连载中、已完结、暂停、坑 | 标签用空格或顿号分隔
+                      类型可选：同人文、同人漫、视频、音频、图、其他 | 状态可选：连载中、已完结、暂停、坑 | 标签用空格或顿号分隔 | 自定义标签需先在标签管理中创建
                     </p>
                   </div>
                   <div className="relative">
@@ -166,8 +168,8 @@ export const BatchImport = () => {
                       placeholder="粘贴数据...
 
 示例：
-原神,散枫,同人文,https://example.com,作者A,已完结,甜 HE,已读,很好看,true
-原神,知妙,同人漫,,作者B,连载中,虐,在读,,false"
+原神,散枫,同人文,https://example.com,作者A,已完结,甜 HE,,已读,很好看,true
+原神,知妙,同人漫,,作者B,连载中,虐,神作 推荐,在读,,false"
                       className="input-field w-full h-64 resize-none font-mono text-sm"
                     />
                     <button
@@ -198,8 +200,9 @@ export const BatchImport = () => {
                       CSV 文件格式要求：
                     </p>
                     <ul className="text-xs text-blue-600 space-y-1">
-                      <li>• 第一行为表头（可选）：作品名,CP名,类型,链接,作者,状态,标签,阅读状态,备注,收藏</li>
+                      <li>• 第一行为表头（可选）：作品名,CP名,类型,链接,作者,状态,标签,自定义标签,阅读状态,备注,收藏</li>
                       <li>• 标签字段多个标签用空格或顿号分隔</li>
+                      <li>• 自定义标签需先在标签管理中创建，通过名称匹配</li>
                       <li>• 收藏字段：true/是/yes/1 表示收藏</li>
                     </ul>
                   </div>
@@ -270,6 +273,7 @@ export const BatchImport = () => {
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">作者</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">状态</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">标签</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">自定义标签</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">阅读状态</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">备注</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700 w-16">收藏</th>
@@ -341,6 +345,30 @@ export const BatchImport = () => {
                               <span className="inline-block px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-600">
                                 ⚠️ 含非法标签
                               </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1">
+                            {entry.customTags.map((tagId) => {
+                              const tag = customTagMap.get(tagId);
+                              return tag ? (
+                                <span
+                                  key={tagId}
+                                  className="inline-block px-1.5 py-0.5 rounded text-xs text-white"
+                                  style={{ backgroundColor: tag.color }}
+                                >
+                                  {tag.name}
+                                </span>
+                              ) : null;
+                            })}
+                            {entry.warnings.some((w) => w.includes('自定义标签未找到')) && (
+                              <span className="inline-block px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">
+                                ⚠️ 含未匹配标签
+                              </span>
+                            )}
+                            {entry.customTags.length === 0 && !entry.warnings.some((w) => w.includes('自定义标签未找到')) && (
+                              <span className="text-gray-400 italic text-xs">-</span>
                             )}
                           </div>
                         </td>
