@@ -35,6 +35,7 @@ export interface EntryStore {
   isFormOpen: boolean;
   isDetailOpen: boolean;
   detailEntry: Entry | null;
+  isBatchImportOpen: boolean;
   addEntry: (entry: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEntry: (id: string, updates: Partial<Entry>) => void;
   deleteEntry: (id: string) => void;
@@ -45,6 +46,8 @@ export interface EntryStore {
   closeForm: () => void;
   openDetail: (entry: Entry) => void;
   closeDetail: () => void;
+  openBatchImport: () => void;
+  closeBatchImport: () => void;
   getFilteredEntries: () => Entry[];
   getUniqueCpNames: () => string[];
   getStats: () => {
@@ -56,6 +59,9 @@ export interface EntryStore {
   exportData: () => BackupData;
   validateAndParseImport: (jsonString: string) => ImportResult;
   importData: (data: BackupData, merge: boolean) => void;
+  batchImportEntries: (entries: ParsedBatchEntry[]) => void;
+  parseBatchText: (text: string) => BatchImportResult;
+  parseBatchCSV: (csvText: string) => BatchImportResult;
   clearAllData: () => void;
 }
 
@@ -115,4 +121,43 @@ export interface ImportResult {
   errors: string[];
   warnings: string[];
   data?: BackupData;
+}
+
+export interface BatchImportRow {
+  rowNumber: number;
+  workName: string;
+  cpName: string;
+  type: string;
+  link: string;
+  author: string;
+  status: string;
+  tags: string;
+  readStatus: string;
+  notes: string;
+  favorite: string;
+}
+
+export interface ParsedBatchEntry {
+  rowNumber: number;
+  workName: string;
+  cpName: string;
+  type: EntryType;
+  link: string;
+  author: string;
+  status: CompletionStatus;
+  tags: FlavorTag[];
+  readStatus: ReadStatus;
+  notes: string;
+  favorite: boolean;
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface BatchImportResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  entries: ParsedBatchEntry[];
+  hasErrors: boolean;
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -25,6 +25,7 @@ export const useEntryStore = create<EntryStore>()(
       isFormOpen: false,
       isDetailOpen: false,
       detailEntry: null,
+      isBatchImportOpen: false,
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -102,6 +103,20 @@ export const useEntryStore = create<EntryStore>()(
         set({
           detailEntry: null,
           isDetailOpen: false,
+        });
+      },
+
+      openBatchImport: () => {
+        set({
+          isBatchImportOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+        });
+      },
+
+      closeBatchImport: () => {
+        set({
+          isBatchImportOpen: false,
         });
       },
 
@@ -391,6 +406,305 @@ export const useEntryStore = create<EntryStore>()(
             filters: data.filters,
           });
         }
+      },
+
+      batchImportEntries: (parsedEntries: ParsedBatchEntry[]) => {
+        const validEntries = parsedEntries.filter((e) => e.isValid);
+        const now = Date.now();
+        const newEntries: Entry[] = validEntries.map((entry, index) => ({
+          id: generateId() + index.toString(),
+          workName: entry.workName,
+          cpName: entry.cpName,
+          type: entry.type,
+          link: entry.link,
+          author: entry.author,
+          status: entry.status,
+          tags: entry.tags,
+          readStatus: entry.readStatus,
+          notes: entry.notes,
+          favorite: entry.favorite,
+          createdAt: now - index,
+          updatedAt: now,
+        }));
+        set((state) => ({
+          entries: [...newEntries, ...state.entries],
+          isBatchImportOpen: false,
+        }));
+      },
+
+      parseBatchText: (text: string): BatchImportResult => {
+        const validTypes = new Set<string>(ENTRY_TYPES);
+        const validStatuses = new Set<string>(COMPLETION_STATUSES);
+        const validReadStatuses = new Set<string>(READ_STATUSES);
+        const validTags = new Set<string>(FLAVOR_TAGS);
+
+        const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
+
+        const parseRow = (row: string[], rowNumber: number): ParsedBatchEntry => {
+          const errors: string[] = [];
+          const warnings: string[] = [];
+
+          const workName = normalizeValue(row[0] || '');
+          const cpName = normalizeValue(row[1] || '');
+          const typeStr = normalizeValue(row[2] || '');
+          const link = normalizeValue(row[3] || '');
+          const author = normalizeValue(row[4] || '');
+          const statusStr = normalizeValue(row[5] || '');
+          const tagsStr = normalizeValue(row[6] || '');
+          const readStatusStr = normalizeValue(row[7] || '');
+          const notes = normalizeValue(row[8] || '');
+          const favoriteStr = normalizeValue(row[9] || '').toLowerCase();
+
+          if (!workName) {
+            errors.push('缺少作品名');
+          }
+          if (!cpName) {
+            errors.push('缺少CP名');
+          }
+
+          let type: EntryType = '同人文';
+          if (typeStr && !validTypes.has(typeStr)) {
+            errors.push(`类型"${typeStr}"不合法`);
+          } else if (typeStr) {
+            type = typeStr as EntryType;
+          }
+
+          let status: CompletionStatus = '已完结';
+          if (statusStr && !validStatuses.has(statusStr)) {
+            errors.push(`状态"${statusStr}"不合法`);
+          } else if (statusStr) {
+            status = statusStr as CompletionStatus;
+          }
+
+          const rawTags = tagsStr.split(/[,，、\s]+/).filter((t) => t);
+          const tags: FlavorTag[] = [];
+          const invalidTags: string[] = [];
+          rawTags.forEach((tag) => {
+            if (validTags.has(tag)) {
+              tags.push(tag as FlavorTag);
+            } else if (tag) {
+              invalidTags.push(tag);
+            }
+          });
+          if (invalidTags.length > 0) {
+            warnings.push(`标签不合法: ${invalidTags.join('、')}`);
+          }
+
+          let readStatus: ReadStatus = '未读';
+          if (readStatusStr && !validReadStatuses.has(readStatusStr)) {
+            errors.push(`阅读状态"${readStatusStr}"不合法`);
+          } else if (readStatusStr) {
+            readStatus = readStatusStr as ReadStatus;
+          }
+
+          const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
+
+          return {
+            rowNumber,
+            workName,
+            cpName,
+            type,
+            link,
+            author,
+            status,
+            tags,
+            readStatus,
+            notes,
+            favorite,
+            isValid: errors.length === 0,
+            errors,
+            warnings,
+          };
+        };
+
+        const lines = text.split(/\r?\n/).filter((line) => line.trim());
+        if (lines.length === 0) {
+          return {
+            totalRows: 0,
+            validRows: 0,
+            invalidRows: 0,
+            entries: [],
+            hasErrors: false,
+          };
+        }
+
+        const firstLine = lines[0].split(/[\t,，]/);
+        const hasHeader = firstLine.some((cell) =>
+          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '阅读状态', '备注', '收藏'].includes(
+            cell.trim().toLowerCase()
+          )
+        );
+
+        const startLine = hasHeader ? 1 : 0;
+        const entries: ParsedBatchEntry[] = [];
+
+        for (let i = startLine; i < lines.length; i++) {
+          const line = lines[i];
+          const row = line.split(/[\t,，]/);
+          if (row.some((cell) => cell.trim())) {
+            entries.push(parseRow(row, i - startLine + 1));
+          }
+        }
+
+        const validRows = entries.filter((e) => e.isValid).length;
+        const hasErrors = entries.some((e) => e.errors.length > 0);
+
+        return {
+          totalRows: entries.length,
+          validRows,
+          invalidRows: entries.length - validRows,
+          entries,
+          hasErrors,
+        };
+      },
+
+      parseBatchCSV: (csvText: string): BatchImportResult => {
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === ',' && !inQuotes) {
+              result.push(current);
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current);
+          return result;
+        };
+
+        const validTypes = new Set<string>(ENTRY_TYPES);
+        const validStatuses = new Set<string>(COMPLETION_STATUSES);
+        const validReadStatuses = new Set<string>(READ_STATUSES);
+        const validTags = new Set<string>(FLAVOR_TAGS);
+
+        const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
+
+        const parseRow = (row: string[], rowNumber: number): ParsedBatchEntry => {
+          const errors: string[] = [];
+          const warnings: string[] = [];
+
+          const workName = normalizeValue(row[0] || '');
+          const cpName = normalizeValue(row[1] || '');
+          const typeStr = normalizeValue(row[2] || '');
+          const link = normalizeValue(row[3] || '');
+          const author = normalizeValue(row[4] || '');
+          const statusStr = normalizeValue(row[5] || '');
+          const tagsStr = normalizeValue(row[6] || '');
+          const readStatusStr = normalizeValue(row[7] || '');
+          const notes = normalizeValue(row[8] || '');
+          const favoriteStr = normalizeValue(row[9] || '').toLowerCase();
+
+          if (!workName) {
+            errors.push('缺少作品名');
+          }
+          if (!cpName) {
+            errors.push('缺少CP名');
+          }
+
+          let type: EntryType = '同人文';
+          if (typeStr && !validTypes.has(typeStr)) {
+            errors.push(`类型"${typeStr}"不合法`);
+          } else if (typeStr) {
+            type = typeStr as EntryType;
+          }
+
+          let status: CompletionStatus = '已完结';
+          if (statusStr && !validStatuses.has(statusStr)) {
+            errors.push(`状态"${statusStr}"不合法`);
+          } else if (statusStr) {
+            status = statusStr as CompletionStatus;
+          }
+
+          const rawTags = tagsStr.split(/[,，、\s]+/).filter((t) => t);
+          const tags: FlavorTag[] = [];
+          const invalidTags: string[] = [];
+          rawTags.forEach((tag) => {
+            if (validTags.has(tag)) {
+              tags.push(tag as FlavorTag);
+            } else if (tag) {
+              invalidTags.push(tag);
+            }
+          });
+          if (invalidTags.length > 0) {
+            warnings.push(`标签不合法: ${invalidTags.join('、')}`);
+          }
+
+          let readStatus: ReadStatus = '未读';
+          if (readStatusStr && !validReadStatuses.has(readStatusStr)) {
+            errors.push(`阅读状态"${readStatusStr}"不合法`);
+          } else if (readStatusStr) {
+            readStatus = readStatusStr as ReadStatus;
+          }
+
+          const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
+
+          return {
+            rowNumber,
+            workName,
+            cpName,
+            type,
+            link,
+            author,
+            status,
+            tags,
+            readStatus,
+            notes,
+            favorite,
+            isValid: errors.length === 0,
+            errors,
+            warnings,
+          };
+        };
+
+        const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+        if (lines.length === 0) {
+          return {
+            totalRows: 0,
+            validRows: 0,
+            invalidRows: 0,
+            entries: [],
+            hasErrors: false,
+          };
+        }
+
+        const firstLine = parseCSVLine(lines[0]);
+        const hasHeader = firstLine.some((cell) =>
+          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '阅读状态', '备注', '收藏'].includes(
+            cell.trim().toLowerCase()
+          )
+        );
+
+        const startLine = hasHeader ? 1 : 0;
+        const entries: ParsedBatchEntry[] = [];
+
+        for (let i = startLine; i < lines.length; i++) {
+          const row = parseCSVLine(lines[i]);
+          if (row.some((cell) => cell.trim())) {
+            entries.push(parseRow(row, i - startLine + 1));
+          }
+        }
+
+        const validRows = entries.filter((e) => e.isValid).length;
+        const hasErrors = entries.some((e) => e.errors.length > 0);
+
+        return {
+          totalRows: entries.length,
+          validRows,
+          invalidRows: entries.length - validRows,
+          entries,
+          hasErrors,
+        };
       },
 
       clearAllData: () => {

@@ -1,9 +1,9 @@
-import { Search, Plus, Heart, BookMarked, BookOpen, Clock } from 'lucide-react';
+import { Search, Plus, Heart, BookMarked, BookOpen, Clock, FileSpreadsheet } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { BackupRestore } from './BackupRestore';
 
 export const SearchBar = () => {
-  const { filters, setFilters, openForm, getStats } = useEntryStore();
+  const { filters, setFilters, openForm, openBatchImport, getStats } = useEntryStore();
   const stats = getStats();
 
   return (
@@ -33,6 +33,14 @@ export const SearchBar = () => {
           </div>
           <div className="flex items-center gap-2">
             <BackupRestore />
+            <button
+              onClick={() => openBatchImport()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-display font-medium text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              title="批量导入"
+            >
+              <FileSpreadsheet size={18} />
+              <span className="hidden sm:inline">批量导入</span>
+            </button>
             <button onClick={() => openForm()} className="btn-primary whitespace-nowrap flex items-center justify-center gap-2">
               <Plus size={18} />
               添加新粮
