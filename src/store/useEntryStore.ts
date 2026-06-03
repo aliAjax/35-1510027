@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -228,35 +228,59 @@ export const useEntryStore = create<EntryStore>()(
           data.filters = { ...defaultFilters };
         } else {
           const rawFilters = data.filters as unknown as Record<string, unknown>;
-          if (typeof rawFilters.cpName !== 'string') warnings.push('筛选配置 cpName 格式错误');
-          if (typeof rawFilters.favoriteOnly !== 'boolean') warnings.push('筛选配置 favoriteOnly 格式错误');
-          if (typeof rawFilters.searchKeyword !== 'string') warnings.push('筛选配置 searchKeyword 格式错误');
-          if (rawFilters.type !== 'all' && (typeof rawFilters.type !== 'string' || !validTypes.has(rawFilters.type))) {
-            warnings.push(`筛选配置 type 值无效: ${String(rawFilters.type)}`);
+          if (typeof rawFilters.cpName !== 'string') {
+            warnings.push('筛选配置 cpName 缺失或格式错误，已使用默认值');
+            rawFilters.cpName = '';
           }
-          if (rawFilters.readStatus !== 'all' && (typeof rawFilters.readStatus !== 'string' || !validReadStatuses.has(rawFilters.readStatus))) {
-            warnings.push(`筛选配置 readStatus 值无效: ${String(rawFilters.readStatus)}`);
+          if (typeof rawFilters.type !== 'string' || (rawFilters.type !== 'all' && !validTypes.has(rawFilters.type))) {
+            warnings.push(`筛选配置 type 缺失或值无效: ${String(rawFilters.type)}，已使用默认值`);
+            rawFilters.type = 'all';
           }
-          if (Array.isArray(rawFilters.tags)) {
-            (rawFilters.tags as unknown[]).forEach((tag) => {
-              if (typeof tag !== 'string' || !validTags.has(tag)) {
-                warnings.push(`筛选配置包含无效标签: ${String(tag)}`);
-              }
-            });
-          } else if (rawFilters.tags !== undefined) {
-            warnings.push('筛选配置 tags 格式错误，应为数组');
+          if (!Array.isArray(rawFilters.tags)) {
+            if (rawFilters.tags !== undefined) warnings.push('筛选配置 tags 格式错误，已使用默认值');
+            rawFilters.tags = [];
+          } else {
+            const validFilterTags = (rawFilters.tags as unknown[]).filter((tag): tag is string =>
+              typeof tag === 'string' && validTags.has(tag)
+            );
+            if (validFilterTags.length !== (rawFilters.tags as unknown[]).length) {
+              warnings.push(`筛选配置标签中已移除 ${(rawFilters.tags as unknown[]).length - validFilterTags.length} 个无效值`);
+            }
+            rawFilters.tags = validFilterTags;
           }
+          if (typeof rawFilters.readStatus !== 'string' || (rawFilters.readStatus !== 'all' && !validReadStatuses.has(rawFilters.readStatus))) {
+            warnings.push(`筛选配置 readStatus 缺失或值无效: ${String(rawFilters.readStatus)}，已使用默认值`);
+            rawFilters.readStatus = 'all';
+          }
+          if (typeof rawFilters.favoriteOnly !== 'boolean') {
+            warnings.push('筛选配置 favoriteOnly 缺失或格式错误，已使用默认值');
+            rawFilters.favoriteOnly = false;
+          }
+          if (typeof rawFilters.searchKeyword !== 'string') {
+            warnings.push('筛选配置 searchKeyword 缺失或格式错误，已使用默认值');
+            rawFilters.searchKeyword = '';
+          }
+          data.filters = {
+            cpName: rawFilters.cpName as string,
+            type: rawFilters.type as EntryType | 'all',
+            tags: rawFilters.tags as FlavorTag[],
+            readStatus: rawFilters.readStatus as ReadStatus | 'all',
+            favoriteOnly: rawFilters.favoriteOnly as boolean,
+            searchKeyword: rawFilters.searchKeyword as string,
+          };
         }
 
         const rawEntries = data.entries as unknown as Record<string, unknown>[];
         let validEntriesCount = 0;
         const seenIds = new Set<string>();
+        const sanitizedEntries: Record<string, unknown>[] = [];
 
         rawEntries.forEach((entry, index) => {
           if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
             errors.push(`第 ${index + 1} 条数据不是有效对象`);
             return;
           }
+          sanitizedEntries.push(entry);
 
           const label = typeof entry.workName === 'string' && entry.workName ? `「${entry.workName}」` : `第 ${index + 1} 条`;
 
@@ -329,10 +353,12 @@ export const useEntryStore = create<EntryStore>()(
           }
         });
 
+        data.entries = sanitizedEntries as unknown as Entry[];
+
         const { entries: currentEntries } = get();
         const currentEntriesCount = currentEntries.length;
         const currentIds = new Set(currentEntries.map((e) => e.id));
-        const duplicateCount = rawEntries.filter((e) =>
+        const duplicateCount = sanitizedEntries.filter((e) =>
           typeof e.id === 'string' && currentIds.has(e.id as string)
         ).length;
         const overwriteCount = currentEntriesCount;
