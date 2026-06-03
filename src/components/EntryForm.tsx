@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Tags } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
   ENTRY_TYPES,
@@ -8,6 +8,7 @@ import {
   FLAVOR_TAGS,
   TYPE_COLORS,
   TAG_COLORS,
+  CUSTOM_TAG_COLORS,
 } from '../types';
 import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
 
@@ -19,6 +20,7 @@ interface FormData {
   author: string;
   status: CompletionStatus;
   tags: FlavorTag[];
+  customTags: string[];
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;
@@ -32,13 +34,14 @@ const defaultFormData: FormData = {
   author: '',
   status: '已完结',
   tags: [],
+  customTags: [],
   readStatus: '未读',
   notes: '',
   favorite: false,
 };
 
 export const EntryForm = () => {
-  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry } = useEntryStore();
+  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager } = useEntryStore();
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -54,6 +57,7 @@ export const EntryForm = () => {
           author: editingEntry.author,
           status: editingEntry.status,
           tags: [...editingEntry.tags],
+          customTags: [...(editingEntry.customTags || [])],
           readStatus: editingEntry.readStatus,
           notes: editingEntry.notes,
           favorite: editingEntry.favorite,
@@ -90,6 +94,15 @@ export const EntryForm = () => {
       tags: prev.tags.includes(tag)
         ? prev.tags.filter((t) => t !== tag)
         : [...prev.tags, tag],
+    }));
+  };
+
+  const toggleCustomTag = (tagId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customTags: prev.customTags.includes(tagId)
+        ? prev.customTags.filter((id) => id !== tagId)
+        : [...prev.customTags, tagId],
     }));
   };
 
@@ -261,6 +274,44 @@ export const EntryForm = () => {
                   {tag}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-display font-semibold text-gray-700">
+                自定义标签
+              </label>
+              <button
+                type="button"
+                onClick={() => openTagManager()}
+                className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 font-display"
+              >
+                <Tags size={12} />
+                管理标签
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {customTags.length === 0 ? (
+                <span className="text-sm text-gray-400 italic">
+                  暂无自定义标签，点击上方按钮创建
+                </span>
+              ) : (
+                customTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleCustomTag(tag.id)}
+                    className={`btn-tag border-2 ${
+                      formData.customTags.includes(tag.id)
+                        ? `${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'} border-current shadow-md`
+                        : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 

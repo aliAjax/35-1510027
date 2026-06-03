@@ -7,6 +7,7 @@ import { EntryList } from '../components/EntryList';
 import { EntryForm } from '../components/EntryForm';
 import { DetailModal } from '../components/DetailModal';
 import { BatchImport } from '../components/BatchImport';
+import { TagManager } from '../components/TagManager';
 import { loadSampleDataIfEmpty } from '../utils/sampleData';
 
 export default function Home() {
@@ -69,6 +70,7 @@ export default function Home() {
       <EntryForm />
       <DetailModal />
       <BatchImport />
+      <TagManager />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Heart, ExternalLink, Edit2, Trash2, BookOpen } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS } from '../types';
+import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
 import type { Entry } from '../types';
 
 interface EntryCardProps {
@@ -10,7 +10,11 @@ interface EntryCardProps {
 }
 
 export const EntryCard = ({ entry, index }: EntryCardProps) => {
-  const { toggleFavorite, openForm, openDetail, deleteEntry } = useEntryStore();
+  const { toggleFavorite, openForm, openDetail, deleteEntry, customTags } = useEntryStore();
+
+  const entryCustomTags = customTags.filter((tag) =>
+    entry.customTags?.includes(tag.id)
+  );
   const [showActions, setShowActions] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -133,6 +137,19 @@ export const EntryCard = ({ entry, index }: EntryCardProps) => {
                 className={`btn-tag text-xs ${TAG_COLORS[tag]}`}
               >
                 {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {entryCustomTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {entryCustomTags.map((tag) => (
+              <span
+                key={tag.id}
+                className={`btn-tag text-xs ${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'}`}
+              >
+                {tag.name}
               </span>
             ))}
           </div>

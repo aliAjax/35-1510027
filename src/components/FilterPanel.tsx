@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, Heart } from 'lucide-react';
+import { Filter, RotateCcw, Heart, Tags } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
   ENTRY_TYPES,
@@ -6,17 +6,19 @@ import {
   FLAVOR_TAGS,
   TYPE_COLORS,
   TAG_COLORS,
+  CUSTOM_TAG_COLORS,
 } from '../types';
 import type { EntryType, ReadStatus, FlavorTag } from '../types';
 
 export const FilterPanel = () => {
-  const { filters, setFilters, resetFilters, getUniqueCpNames } = useEntryStore();
+  const { filters, setFilters, resetFilters, getUniqueCpNames, customTags, openTagManager } = useEntryStore();
   const cpNames = getUniqueCpNames();
 
   const hasActiveFilters =
     filters.cpName ||
     filters.type !== 'all' ||
     filters.tags.length > 0 ||
+    filters.customTags.length > 0 ||
     filters.readStatus !== 'all' ||
     filters.favoriteOnly ||
     filters.searchKeyword;
@@ -26,6 +28,13 @@ export const FilterPanel = () => {
       ? filters.tags.filter((t) => t !== tag)
       : [...filters.tags, tag];
     setFilters({ tags: newTags });
+  };
+
+  const toggleCustomTag = (tagId: string) => {
+    const newCustomTags = filters.customTags.includes(tagId)
+      ? filters.customTags.filter((id) => id !== tagId)
+      : [...filters.customTags, tagId];
+    setFilters({ customTags: newCustomTags });
   };
 
   return (
@@ -133,6 +142,38 @@ export const FilterPanel = () => {
             ))}
           </div>
         </div>
+
+        {customTags.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-display font-semibold text-gray-500 uppercase tracking-wide">
+                自定义标签
+              </label>
+              <button
+                onClick={() => openTagManager()}
+                className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-600 font-display"
+              >
+                <Tags size={12} />
+                管理
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {customTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => toggleCustomTag(tag.id)}
+                  className={`btn-tag text-xs ${
+                    filters.customTags.includes(tag.id)
+                      ? `${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'} shadow-md border-current`
+                      : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-4">
           <div>

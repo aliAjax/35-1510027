@@ -3,6 +3,13 @@ export type CompletionStatus = '连载中' | '已完结' | '暂停' | '坑';
 export type ReadStatus = '未读' | '在读' | '已读' | '弃坑';
 export type FlavorTag = '虐' | '甜' | '中等' | 'HE' | 'BE' | 'OE' | '车' | '清水';
 
+export interface CustomTag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: number;
+}
+
 export interface Entry {
   id: string;
   workName: string;
@@ -12,6 +19,7 @@ export interface Entry {
   author: string;
   status: CompletionStatus;
   tags: FlavorTag[];
+  customTags: string[];
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;
@@ -23,6 +31,7 @@ export interface FilterState {
   cpName: string;
   type: EntryType | 'all';
   tags: FlavorTag[];
+  customTags: string[];
   readStatus: ReadStatus | 'all';
   favoriteOnly: boolean;
   searchKeyword: string;
@@ -30,12 +39,14 @@ export interface FilterState {
 
 export interface EntryStore {
   entries: Entry[];
+  customTags: CustomTag[];
   filters: FilterState;
   editingEntry: Entry | null;
   isFormOpen: boolean;
   isDetailOpen: boolean;
   detailEntry: Entry | null;
   isBatchImportOpen: boolean;
+  isTagManagerOpen: boolean;
   addEntry: (entry: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEntry: (id: string, updates: Partial<Entry>) => void;
   deleteEntry: (id: string) => void;
@@ -48,6 +59,12 @@ export interface EntryStore {
   closeDetail: () => void;
   openBatchImport: () => void;
   closeBatchImport: () => void;
+  openTagManager: () => void;
+  closeTagManager: () => void;
+  addCustomTag: (name: string, color: string) => void;
+  updateCustomTag: (id: string, updates: Partial<CustomTag>) => void;
+  deleteCustomTag: (id: string) => void;
+  getEntriesWithTag: (tagId: string) => Entry[];
   getFilteredEntries: () => Entry[];
   getUniqueCpNames: () => string[];
   getStats: () => {
@@ -104,10 +121,53 @@ export const TAG_COLORS: Record<FlavorTag, string> = {
   '清水': 'bg-sky-100 text-sky-700',
 };
 
+export const CUSTOM_TAG_COLORS: Record<string, string> = {
+  red: 'bg-red-100 text-red-700',
+  orange: 'bg-orange-100 text-orange-700',
+  amber: 'bg-amber-100 text-amber-700',
+  yellow: 'bg-yellow-100 text-yellow-700',
+  lime: 'bg-lime-100 text-lime-700',
+  green: 'bg-green-100 text-green-700',
+  emerald: 'bg-emerald-100 text-emerald-700',
+  teal: 'bg-teal-100 text-teal-700',
+  cyan: 'bg-cyan-100 text-cyan-700',
+  sky: 'bg-sky-100 text-sky-700',
+  blue: 'bg-blue-100 text-blue-700',
+  indigo: 'bg-indigo-100 text-indigo-700',
+  violet: 'bg-violet-100 text-violet-700',
+  purple: 'bg-purple-100 text-purple-700',
+  fuchsia: 'bg-fuchsia-100 text-fuchsia-700',
+  pink: 'bg-pink-100 text-pink-700',
+  rose: 'bg-rose-100 text-rose-700',
+  slate: 'bg-slate-100 text-slate-700',
+};
+
+export const CUSTOM_TAG_PRESET_COLORS = [
+  { id: 'red', name: '红色', color: '#ef4444' },
+  { id: 'orange', name: '橙色', color: '#f97316' },
+  { id: 'amber', name: '琥珀', color: '#f59e0b' },
+  { id: 'yellow', name: '黄色', color: '#eab308' },
+  { id: 'lime', name: '青柠', color: '#84cc16' },
+  { id: 'green', name: '绿色', color: '#22c55e' },
+  { id: 'emerald', name: '翡翠', color: '#10b981' },
+  { id: 'teal', name: '蓝绿', color: '#14b8a6' },
+  { id: 'cyan', name: '青色', color: '#06b6d4' },
+  { id: 'sky', name: '天蓝', color: '#0ea5e9' },
+  { id: 'blue', name: '蓝色', color: '#3b82f6' },
+  { id: 'indigo', name: '靛蓝', color: '#6366f1' },
+  { id: 'violet', name: '紫罗兰', color: '#8b5cf6' },
+  { id: 'purple', name: '紫色', color: '#a855f7' },
+  { id: 'fuchsia', name: '紫红', color: '#d946ef' },
+  { id: 'pink', name: '粉色', color: '#ec4899' },
+  { id: 'rose', name: '玫瑰', color: '#f43f5e' },
+  { id: 'slate', name: '石板', color: '#64748b' },
+];
+
 export interface BackupData {
   version: string;
   exportedAt: number;
   entries: Entry[];
+  customTags: CustomTag[];
   filters: FilterState;
 }
 
@@ -146,6 +206,7 @@ export interface ParsedBatchEntry {
   author: string;
   status: CompletionStatus;
   tags: FlavorTag[];
+  customTags: string[];
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, Heart, ExternalLink, Edit2, Trash2, BookOpen, User, Calendar, Tag, FileText } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS } from '../types';
+import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
 
 export const DetailModal = () => {
-  const { isDetailOpen, detailEntry, closeDetail, toggleFavorite, openForm, deleteEntry } = useEntryStore();
+  const { isDetailOpen, detailEntry, closeDetail, toggleFavorite, openForm, deleteEntry, customTags } = useEntryStore();
   const [isAnimating, setIsAnimating] = useState(false);
   const [heartAnimating, setHeartAnimating] = useState(false);
 
@@ -15,6 +15,10 @@ export const DetailModal = () => {
   }, [isDetailOpen]);
 
   if (!isDetailOpen || !detailEntry) return null;
+
+  const entryCustomTags = customTags.filter((tag) =>
+    detailEntry.customTags?.includes(tag.id)
+  );
 
   const handleClose = () => {
     setIsAnimating(false);
@@ -95,6 +99,25 @@ export const DetailModal = () => {
                     className={`btn-tag text-xs ${TAG_COLORS[tag]}`}
                   >
                     {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {entryCustomTags.length > 0 && (
+            <div className="mb-5">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <Tag size={14} />
+                <span className="font-display font-medium">自定义标签</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {entryCustomTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className={`btn-tag text-xs ${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'}`}
+                  >
+                    {tag.name}
                   </span>
                 ))}
               </div>

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -11,6 +11,7 @@ const defaultFilters: FilterState = {
   cpName: '',
   type: 'all',
   tags: [],
+  customTags: [],
   readStatus: 'all',
   favoriteOnly: false,
   searchKeyword: '',
@@ -20,12 +21,14 @@ export const useEntryStore = create<EntryStore>()(
   persist(
     (set, get) => ({
       entries: [],
+      customTags: [],
       filters: { ...defaultFilters },
       editingEntry: null,
       isFormOpen: false,
       isDetailOpen: false,
       detailEntry: null,
       isBatchImportOpen: false,
+      isTagManagerOpen: false,
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -120,9 +123,64 @@ export const useEntryStore = create<EntryStore>()(
         });
       },
 
+      openTagManager: () => {
+        set({
+          isTagManagerOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+        });
+      },
+
+      closeTagManager: () => {
+        set({
+          isTagManagerOpen: false,
+        });
+      },
+
+      addCustomTag: (name, color) => {
+        const newTag: CustomTag = {
+          id: generateId(),
+          name,
+          color,
+          createdAt: Date.now(),
+        };
+        set((state) => ({
+          customTags: [...state.customTags, newTag],
+        }));
+      },
+
+      updateCustomTag: (id, updates) => {
+        set((state) => ({
+          customTags: state.customTags.map((tag) =>
+            tag.id === id ? { ...tag, ...updates } : tag
+          ),
+        }));
+      },
+
+      deleteCustomTag: (id) => {
+        set((state) => ({
+          customTags: state.customTags.filter((tag) => tag.id !== id),
+          entries: state.entries.map((entry) => ({
+            ...entry,
+            customTags: entry.customTags.filter((tagId) => tagId !== id),
+          })),
+          filters: {
+            ...state.filters,
+            customTags: state.filters.customTags.filter((tagId) => tagId !== id),
+          },
+        }));
+      },
+
+      getEntriesWithTag: (tagId) => {
+        const { entries } = get();
+        return entries.filter((entry) => (entry.customTags || []).includes(tagId));
+      },
+
       getFilteredEntries: () => {
-        const { entries, filters } = get();
+        const { entries, filters, customTags } = get();
         return entries.filter((entry) => {
+          const entryCustomTags = entry.customTags || [];
           if (filters.cpName && entry.cpName !== filters.cpName) return false;
           if (filters.type !== 'all' && entry.type !== filters.type) return false;
           if (filters.readStatus !== 'all' && entry.readStatus !== filters.readStatus) return false;
@@ -131,14 +189,24 @@ export const useEntryStore = create<EntryStore>()(
             const hasAllTags = filters.tags.every((tag) => entry.tags.includes(tag));
             if (!hasAllTags) return false;
           }
+          if (filters.customTags.length > 0) {
+            const hasAllCustomTags = filters.customTags.every((tagId) =>
+              entryCustomTags.includes(tagId)
+            );
+            if (!hasAllCustomTags) return false;
+          }
           if (filters.searchKeyword) {
             const keyword = filters.searchKeyword.toLowerCase();
+            const tagNames = customTags
+              .filter((t) => entryCustomTags.includes(t.id))
+              .map((t) => t.name);
             const searchFields = [
               entry.workName,
               entry.cpName,
               entry.author,
               entry.notes,
               ...entry.tags,
+              ...tagNames,
             ];
             const matches = searchFields.some((field) =>
               field.toLowerCase().includes(keyword)
@@ -166,11 +234,12 @@ export const useEntryStore = create<EntryStore>()(
       },
 
       exportData: () => {
-        const { entries, filters } = get();
+        const { entries, customTags, filters } = get();
         return {
           version: '1.0',
           exportedAt: Date.now(),
           entries,
+          customTags,
           filters,
         };
       },
@@ -221,6 +290,26 @@ export const useEntryStore = create<EntryStore>()(
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validTags = new Set<string>(FLAVOR_TAGS);
 
+        if (!Array.isArray(data.customTags)) {
+          warnings.push('自定义标签数据缺失或格式错误，将使用空数组');
+          data.customTags = [];
+        } else {
+          const { customTags } = get();
+          const existingTagIds = new Set(customTags.map((t) => t.id));
+          data.customTags = data.customTags.filter((tag: unknown) => {
+            if (tag && typeof tag === 'object' && 'id' in tag && 'name' in tag && 'color' in tag) {
+              const t = tag as CustomTag;
+              if (existingTagIds.has(t.id)) {
+                warnings.push(`自定义标签「${t.name}」ID 重复，已跳过`);
+                return false;
+              }
+              return true;
+            }
+            warnings.push('发现无效的自定义标签数据，已跳过');
+            return false;
+          }) as CustomTag[];
+        }
+
         if (!Array.isArray(data.entries)) {
           return {
             success: false,
@@ -263,6 +352,15 @@ export const useEntryStore = create<EntryStore>()(
             }
             rawFilters.tags = validFilterTags;
           }
+          if (!Array.isArray(rawFilters.customTags)) {
+            if (rawFilters.customTags !== undefined) warnings.push('筛选配置 customTags 格式错误，已使用默认值');
+            rawFilters.customTags = [];
+          } else {
+            const validCustomTags = (rawFilters.customTags as unknown[]).filter((tag): tag is string =>
+              typeof tag === 'string'
+            );
+            rawFilters.customTags = validCustomTags;
+          }
           if (typeof rawFilters.readStatus !== 'string' || (rawFilters.readStatus !== 'all' && !validReadStatuses.has(rawFilters.readStatus))) {
             warnings.push(`筛选配置 readStatus 缺失或值无效: ${String(rawFilters.readStatus)}，已使用默认值`);
             rawFilters.readStatus = 'all';
@@ -279,6 +377,7 @@ export const useEntryStore = create<EntryStore>()(
             cpName: rawFilters.cpName as string,
             type: rawFilters.type as EntryType | 'all',
             tags: rawFilters.tags as FlavorTag[],
+            customTags: rawFilters.customTags as string[],
             readStatus: rawFilters.readStatus as ReadStatus | 'all',
             favoriteOnly: rawFilters.favoriteOnly as boolean,
             searchKeyword: rawFilters.searchKeyword as string,
@@ -337,6 +436,13 @@ export const useEntryStore = create<EntryStore>()(
               }
             });
           }
+          if (!Array.isArray(entry.customTags)) {
+            entry.customTags = [];
+          } else {
+            entry.customTags = (entry.customTags as unknown[]).filter((tag): tag is string =>
+              typeof tag === 'string'
+            );
+          }
           if (typeof entry.readStatus !== 'string' || !entry.readStatus) {
             errors.push(`${label}缺少阅读状态`);
           } else if (!validReadStatuses.has(entry.readStatus)) {
@@ -393,16 +499,20 @@ export const useEntryStore = create<EntryStore>()(
 
       importData: (data: BackupData, merge: boolean) => {
         if (merge) {
-          const { entries: currentEntries } = get();
+          const { entries: currentEntries, customTags: currentTags } = get();
           const currentIds = new Set(currentEntries.map((e) => e.id));
+          const currentTagIds = new Set(currentTags.map((t) => t.id));
           const newEntries = data.entries.filter((e) => !currentIds.has(e.id));
+          const newCustomTags = data.customTags.filter((t) => !currentTagIds.has(t.id));
           set((state) => ({
             entries: [...newEntries, ...state.entries],
+            customTags: [...newCustomTags, ...state.customTags],
             filters: data.filters,
           }));
         } else {
           set({
             entries: data.entries,
+            customTags: data.customTags,
             filters: data.filters,
           });
         }
@@ -420,6 +530,7 @@ export const useEntryStore = create<EntryStore>()(
           author: entry.author,
           status: entry.status,
           tags: entry.tags,
+          customTags: entry.customTags,
           readStatus: entry.readStatus,
           notes: entry.notes,
           favorite: entry.favorite,
@@ -437,6 +548,8 @@ export const useEntryStore = create<EntryStore>()(
         const validStatuses = new Set<string>(COMPLETION_STATUSES);
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validTags = new Set<string>(FLAVOR_TAGS);
+        const { customTags } = get();
+        const customTagMap = new Map(customTags.map((t) => [t.name.toLowerCase(), t.id]));
 
         const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
 
@@ -451,9 +564,10 @@ export const useEntryStore = create<EntryStore>()(
           const author = normalizeValue(row[4] || '');
           const statusStr = normalizeValue(row[5] || '');
           const tagsStr = normalizeValue(row[6] || '');
-          const readStatusStr = normalizeValue(row[7] || '');
-          const notes = normalizeValue(row[8] || '');
-          const favoriteStr = normalizeValue(row[9] || '').toLowerCase();
+          const customTagsStr = normalizeValue(row[7] || '');
+          const readStatusStr = normalizeValue(row[8] || '');
+          const notes = normalizeValue(row[9] || '');
+          const favoriteStr = normalizeValue(row[10] || '').toLowerCase();
 
           if (!workName) {
             errors.push('缺少作品名');
@@ -490,6 +604,21 @@ export const useEntryStore = create<EntryStore>()(
             errors.push(`标签不合法: ${invalidTags.join('、')}`);
           }
 
+          const rawCustomTags = customTagsStr.split(/[,，、\s]+/).filter((t) => t);
+          const parsedCustomTags: string[] = [];
+          const unmatchedCustomTags: string[] = [];
+          rawCustomTags.forEach((tagName) => {
+            const tagId = customTagMap.get(tagName.toLowerCase());
+            if (tagId) {
+              parsedCustomTags.push(tagId);
+            } else if (tagName) {
+              unmatchedCustomTags.push(tagName);
+            }
+          });
+          if (unmatchedCustomTags.length > 0) {
+            warnings.push(`自定义标签未找到: ${unmatchedCustomTags.join('、')}（请先创建标签再导入）`);
+          }
+
           let readStatus: ReadStatus = '未读';
           if (readStatusStr && !validReadStatuses.has(readStatusStr)) {
             errors.push(`阅读状态"${readStatusStr}"不合法`);
@@ -508,6 +637,7 @@ export const useEntryStore = create<EntryStore>()(
             author,
             status,
             tags,
+            customTags: parsedCustomTags,
             readStatus,
             notes,
             favorite,
@@ -530,7 +660,7 @@ export const useEntryStore = create<EntryStore>()(
 
         const firstLine = lines[0].split(/[\t,，]/);
         const hasHeader = firstLine.some((cell) =>
-          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '阅读状态', '备注', '收藏'].includes(
+          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '自定义标签', '阅读状态', '备注', '收藏'].includes(
             cell.trim().toLowerCase()
           )
         );
@@ -587,6 +717,8 @@ export const useEntryStore = create<EntryStore>()(
         const validStatuses = new Set<string>(COMPLETION_STATUSES);
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validTags = new Set<string>(FLAVOR_TAGS);
+        const { customTags } = get();
+        const customTagMap = new Map(customTags.map((t) => [t.name.toLowerCase(), t.id]));
 
         const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
 
@@ -601,9 +733,10 @@ export const useEntryStore = create<EntryStore>()(
           const author = normalizeValue(row[4] || '');
           const statusStr = normalizeValue(row[5] || '');
           const tagsStr = normalizeValue(row[6] || '');
-          const readStatusStr = normalizeValue(row[7] || '');
-          const notes = normalizeValue(row[8] || '');
-          const favoriteStr = normalizeValue(row[9] || '').toLowerCase();
+          const customTagsStr = normalizeValue(row[7] || '');
+          const readStatusStr = normalizeValue(row[8] || '');
+          const notes = normalizeValue(row[9] || '');
+          const favoriteStr = normalizeValue(row[10] || '').toLowerCase();
 
           if (!workName) {
             errors.push('缺少作品名');
@@ -640,6 +773,21 @@ export const useEntryStore = create<EntryStore>()(
             errors.push(`标签不合法: ${invalidTags.join('、')}`);
           }
 
+          const rawCustomTags = customTagsStr.split(/[,，、\s]+/).filter((t) => t);
+          const parsedCustomTags: string[] = [];
+          const unmatchedCustomTags: string[] = [];
+          rawCustomTags.forEach((tagName) => {
+            const tagId = customTagMap.get(tagName.toLowerCase());
+            if (tagId) {
+              parsedCustomTags.push(tagId);
+            } else if (tagName) {
+              unmatchedCustomTags.push(tagName);
+            }
+          });
+          if (unmatchedCustomTags.length > 0) {
+            warnings.push(`自定义标签未找到: ${unmatchedCustomTags.join('、')}（请先创建标签再导入）`);
+          }
+
           let readStatus: ReadStatus = '未读';
           if (readStatusStr && !validReadStatuses.has(readStatusStr)) {
             errors.push(`阅读状态"${readStatusStr}"不合法`);
@@ -658,6 +806,7 @@ export const useEntryStore = create<EntryStore>()(
             author,
             status,
             tags,
+            customTags: parsedCustomTags,
             readStatus,
             notes,
             favorite,
@@ -680,7 +829,7 @@ export const useEntryStore = create<EntryStore>()(
 
         const firstLine = parseCSVLine(lines[0]);
         const hasHeader = firstLine.some((cell) =>
-          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '阅读状态', '备注', '收藏'].includes(
+          ['作品名', 'cp名', '类型', '链接', '作者', '状态', '标签', '自定义标签', '阅读状态', '备注', '收藏'].includes(
             cell.trim().toLowerCase()
           )
         );
@@ -710,6 +859,7 @@ export const useEntryStore = create<EntryStore>()(
       clearAllData: () => {
         set({
           entries: [],
+          customTags: [],
           filters: { ...defaultFilters },
         });
       },
@@ -718,8 +868,23 @@ export const useEntryStore = create<EntryStore>()(
       name: 'cp-grain-list-data',
       partialize: (state) => ({
         entries: state.entries,
+        customTags: state.customTags,
         filters: state.filters,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.filters = {
+            ...defaultFilters,
+            ...state.filters,
+            customTags: state.filters?.customTags || [],
+          };
+          state.entries = state.entries?.map((entry) => ({
+            ...entry,
+            customTags: entry.customTags || [],
+          })) || [];
+          state.customTags = state.customTags || [];
+        }
+      },
     }
   )
 );
