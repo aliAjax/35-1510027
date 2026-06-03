@@ -487,7 +487,7 @@ export const useEntryStore = create<EntryStore>()(
             }
           });
           if (invalidTags.length > 0) {
-            warnings.push(`标签不合法: ${invalidTags.join('、')}`);
+            errors.push(`标签不合法: ${invalidTags.join('、')}`);
           }
 
           let readStatus: ReadStatus = '未读';
@@ -637,7 +637,7 @@ export const useEntryStore = create<EntryStore>()(
             }
           });
           if (invalidTags.length > 0) {
-            warnings.push(`标签不合法: ${invalidTags.join('、')}`);
+            errors.push(`标签不合法: ${invalidTags.join('、')}`);
           }
 
           let readStatus: ReadStatus = '未读';

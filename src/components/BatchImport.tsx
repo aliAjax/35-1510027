@@ -266,10 +266,13 @@ export const BatchImport = () => {
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">作品名</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">CP名</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">类型</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">链接</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">作者</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">状态</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">标签</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">阅读状态</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">备注</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700 w-16">收藏</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">问题</th>
                     </tr>
                   </thead>
@@ -301,6 +304,15 @@ export const BatchImport = () => {
                             {entry.type}
                           </span>
                         </td>
+                        <td className="px-3 py-2 max-w-[200px] truncate text-gray-500" title={entry.link}>
+                          {entry.link ? (
+                            <a href={entry.link} target="_blank" rel="noopener noreferrer" className="text-primary-500 hover:text-primary-600 hover:underline">
+                              🔗 链接
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-gray-700">
                           {entry.author || <span className="text-gray-400 italic">-</span>}
                         </td>
@@ -325,6 +337,11 @@ export const BatchImport = () => {
                                 {tag}
                               </span>
                             ))}
+                            {entry.errors.some((e) => e.includes('标签不合法')) && (
+                              <span className="inline-block px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-600">
+                                ⚠️ 含非法标签
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2">
@@ -337,6 +354,16 @@ export const BatchImport = () => {
                           >
                             {entry.readStatus}
                           </span>
+                        </td>
+                        <td className="px-3 py-2 max-w-[200px] truncate text-gray-600" title={entry.notes}>
+                          {entry.notes || <span className="text-gray-400 italic">-</span>}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {entry.favorite ? (
+                            <span className="text-red-500">❤️</span>
+                          ) : (
+                            <span className="text-gray-300">🤍</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 max-w-xs">
                           {entry.errors.length > 0 && (
