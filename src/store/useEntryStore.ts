@@ -162,81 +162,165 @@ export const useEntryStore = create<EntryStore>()(
 
       validateAndParseImport: (jsonString: string): ImportResult => {
         const errors: string[] = [];
+        const warnings: string[] = [];
         let data: BackupData | null = null;
 
         try {
-          data = JSON.parse(jsonString) as BackupData;
+          data = JSON.parse(jsonString);
         } catch {
           return {
             success: false,
             entriesCount: 0,
+            validEntriesCount: 0,
             duplicateCount: 0,
+            currentEntriesCount: 0,
+            overwriteCount: 0,
             errors: ['JSON 格式错误，请检查文件内容'],
+            warnings: [],
           };
         }
 
-        if (!data || typeof data !== 'object') {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
           return {
             success: false,
             entriesCount: 0,
+            validEntriesCount: 0,
             duplicateCount: 0,
-            errors: ['数据格式无效'],
+            currentEntriesCount: 0,
+            overwriteCount: 0,
+            errors: ['数据格式无效，根元素必须为对象'],
+            warnings: [],
           };
         }
 
-        if (!data.version) {
-          errors.push('缺少版本信息，可能不是有效的备份文件');
+        if (!data.version || typeof data.version !== 'string') {
+          warnings.push('缺少版本信息，可能不是有效的备份文件');
+        }
+
+        if (typeof data.exportedAt !== 'number' || data.exportedAt <= 0) {
+          warnings.push('缺少导出时间信息');
         }
 
         if (!Array.isArray(data.entries)) {
-          errors.push('entries 字段格式错误');
           return {
             success: false,
             entriesCount: 0,
+            validEntriesCount: 0,
             duplicateCount: 0,
-            errors,
+            currentEntriesCount: 0,
+            overwriteCount: 0,
+            errors: ['entries 字段缺失或格式错误，必须为数组'],
+            warnings,
           };
         }
 
-        const validTypes = new Set(ENTRY_TYPES);
-        const validStatuses = new Set(COMPLETION_STATUSES);
-        const validReadStatuses = new Set(READ_STATUSES);
-        const validTags = new Set(FLAVOR_TAGS);
+        if (!data.filters || typeof data.filters !== 'object' || Array.isArray(data.filters)) {
+          warnings.push('筛选配置缺失或格式错误，将使用默认配置');
+          data.filters = { ...defaultFilters };
+        } else {
+          if (typeof data.filters.cpName !== 'string') warnings.push('筛选配置 cpName 格式错误');
+          if (typeof data.filters.favoriteOnly !== 'boolean') warnings.push('筛选配置 favoriteOnly 格式错误');
+          if (typeof data.filters.searchKeyword !== 'string') warnings.push('筛选配置 searchKeyword 格式错误');
+        }
 
-        data.entries.forEach((entry, index) => {
-          if (!entry.workName) {
-            errors.push(`第 ${index + 1} 条数据缺少作品名称`);
+        const validTypes = new Set<string>(ENTRY_TYPES);
+        const validStatuses = new Set<string>(COMPLETION_STATUSES);
+        const validReadStatuses = new Set<string>(READ_STATUSES);
+        const validTags = new Set<string>(FLAVOR_TAGS);
+
+        const rawEntries = data.entries as unknown as Record<string, unknown>[];
+        let validEntriesCount = 0;
+
+        rawEntries.forEach((entry, index) => {
+          if (!entry || typeof entry !== 'object') {
+            errors.push(`第 ${index + 1} 条数据不是有效对象`);
+            return;
           }
-          if (!entry.cpName) {
-            errors.push(`第 ${index + 1} 条数据缺少 CP 名称`);
+
+          const label = typeof entry.workName === 'string' && entry.workName ? `「${entry.workName}」` : `第 ${index + 1} 条`;
+
+          if (typeof entry.id !== 'string' || !entry.id) {
+            errors.push(`${label}缺少有效 id`);
           }
-          if (entry.type && !validTypes.has(entry.type as EntryType)) {
-            errors.push(`第 ${index + 1} 条数据类型无效: ${entry.type}`);
+          if (typeof entry.workName !== 'string' || !entry.workName.trim()) {
+            errors.push(`${label}缺少作品名称`);
           }
-          if (entry.status && !validStatuses.has(entry.status as CompletionStatus)) {
-            errors.push(`第 ${index + 1} 条数据完成状态无效: ${entry.status}`);
+          if (typeof entry.cpName !== 'string' || !entry.cpName.trim()) {
+            errors.push(`${label}缺少 CP 名称`);
           }
-          if (entry.readStatus && !validReadStatuses.has(entry.readStatus as ReadStatus)) {
-            errors.push(`第 ${index + 1} 条数据阅读状态无效: ${entry.readStatus}`);
+          if (typeof entry.type !== 'string' || !entry.type) {
+            errors.push(`${label}缺少类型`);
+          } else if (!validTypes.has(entry.type)) {
+            errors.push(`${label}类型无效: ${entry.type}`);
           }
-          if (Array.isArray(entry.tags)) {
-            entry.tags.forEach((tag) => {
-              if (!validTags.has(tag as FlavorTag)) {
-                errors.push(`第 ${index + 1} 条数据包含无效标签: ${tag}`);
+          if (typeof entry.link !== 'string') {
+            warnings.push(`${label}链接格式错误`);
+          }
+          if (typeof entry.author !== 'string') {
+            warnings.push(`${label}作者格式错误`);
+          }
+          if (typeof entry.status !== 'string' || !entry.status) {
+            errors.push(`${label}缺少完成状态`);
+          } else if (!validStatuses.has(entry.status)) {
+            errors.push(`${label}完成状态无效: ${entry.status}`);
+          }
+          if (!Array.isArray(entry.tags)) {
+            errors.push(`${label}标签格式错误，必须为数组`);
+          } else {
+            (entry.tags as unknown[]).forEach((tag) => {
+              if (typeof tag !== 'string' || !validTags.has(tag)) {
+                warnings.push(`${label}包含无效标签: ${String(tag)}`);
               }
             });
+          }
+          if (typeof entry.readStatus !== 'string' || !entry.readStatus) {
+            errors.push(`${label}缺少阅读状态`);
+          } else if (!validReadStatuses.has(entry.readStatus)) {
+            errors.push(`${label}阅读状态无效: ${entry.readStatus}`);
+          }
+          if (typeof entry.notes !== 'string') {
+            warnings.push(`${label}备注格式错误`);
+          }
+          if (typeof entry.favorite !== 'boolean') {
+            warnings.push(`${label}收藏标记格式错误`);
+          }
+          if (typeof entry.createdAt !== 'number' || entry.createdAt <= 0) {
+            warnings.push(`${label}创建时间格式错误`);
+          }
+          if (typeof entry.updatedAt !== 'number' || entry.updatedAt <= 0) {
+            warnings.push(`${label}更新时间格式错误`);
+          }
+
+          const hasId = typeof entry.id === 'string' && entry.id;
+          const hasRequiredStrings = typeof entry.workName === 'string' && entry.workName.trim()
+            && typeof entry.cpName === 'string' && entry.cpName.trim()
+            && typeof entry.type === 'string' && entry.type
+            && typeof entry.status === 'string' && entry.status
+            && typeof entry.readStatus === 'string' && entry.readStatus;
+          const hasTagsArray = Array.isArray(entry.tags);
+
+          if (hasId && hasRequiredStrings && hasTagsArray) {
+            validEntriesCount++;
           }
         });
 
         const { entries: currentEntries } = get();
+        const currentEntriesCount = currentEntries.length;
         const currentIds = new Set(currentEntries.map((e) => e.id));
-        const duplicateCount = data.entries.filter((e) => currentIds.has(e.id)).length;
+        const duplicateCount = rawEntries.filter((e) =>
+          typeof e.id === 'string' && currentIds.has(e.id as string)
+        ).length;
+        const overwriteCount = currentEntriesCount;
 
         return {
-          success: errors.length === 0 || (data.entries.length > 0),
+          success: errors.length === 0,
           entriesCount: data.entries.length,
+          validEntriesCount,
           duplicateCount,
+          currentEntriesCount,
+          overwriteCount,
           errors,
+          warnings,
           data,
         };
       },

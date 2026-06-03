@@ -129,25 +129,50 @@ export const BackupRestore = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${importResult.errors.length > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
+                <div className={`p-4 rounded-lg ${importResult.errors.length > 0 ? 'bg-red-50 border border-red-200' : importResult.warnings.length > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
                   <div className="flex items-start gap-3">
                     {importResult.errors.length > 0 ? (
+                      <AlertTriangle className="text-red-500 flex-shrink-0" size={20} />
+                    ) : importResult.warnings.length > 0 ? (
                       <AlertTriangle className="text-amber-500 flex-shrink-0" size={20} />
                     ) : (
                       <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
                     )}
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium text-gray-800 mb-2">导入预览</p>
                       <div className="space-y-1 text-sm">
                         <p>
-                          <span className="text-gray-600">条目数量：</span>
+                          <span className="text-gray-600">待导入条目：</span>
                           <span className="font-semibold text-gray-800">{importResult.entriesCount} 条</span>
+                          {importResult.entriesCount !== importResult.validEntriesCount && (
+                            <span className="text-red-600 ml-1">（有效 {importResult.validEntriesCount} 条）</span>
+                          )}
                         </p>
+                        {importResult.currentEntriesCount > 0 && (
+                          <p>
+                            <span className="text-gray-600">当前已有：</span>
+                            <span className="font-semibold text-gray-800">{importResult.currentEntriesCount} 条</span>
+                          </p>
+                        )}
                         {importResult.duplicateCount > 0 && (
                           <p className="text-amber-700">
                             <Info size={14} className="inline mr-1" />
                             发现 {importResult.duplicateCount} 条重复数据（ID 相同）
                           </p>
+                        )}
+                        {importResult.currentEntriesCount > 0 && mergeMode && (
+                          <p className="text-blue-700">
+                            <Info size={14} className="inline mr-1" />
+                            合并模式：将跳过 {importResult.duplicateCount} 条重复项，新增约 {importResult.entriesCount - importResult.duplicateCount} 条
+                          </p>
+                        )}
+                        {importResult.currentEntriesCount > 0 && !mergeMode && (
+                          <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
+                            <p className="text-red-700 font-medium">
+                              <AlertTriangle size={14} className="inline mr-1" />
+                              覆盖模式：当前 {importResult.overwriteCount} 条数据将被全部替换！
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -156,13 +181,31 @@ export const BackupRestore = () => {
 
                 {importResult.errors.length > 0 && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm font-medium text-red-700 mb-2">警告信息：</p>
+                    <p className="text-sm font-medium text-red-700 mb-2">
+                      致命错误（{importResult.errors.length} 项，需修复后才能导入）：
+                    </p>
                     <ul className="text-xs text-red-600 space-y-1 max-h-32 overflow-y-auto">
                       {importResult.errors.slice(0, 10).map((error, i) => (
                         <li key={i}>• {error}</li>
                       ))}
                       {importResult.errors.length > 10 && (
-                        <li>... 还有 {importResult.errors.length - 10} 条警告</li>
+                        <li>... 还有 {importResult.errors.length - 10} 项错误</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {importResult.warnings.length > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm font-medium text-amber-700 mb-2">
+                      警告信息（{importResult.warnings.length} 项，可忽略）：
+                    </p>
+                    <ul className="text-xs text-amber-600 space-y-1 max-h-32 overflow-y-auto">
+                      {importResult.warnings.slice(0, 8).map((warning, i) => (
+                        <li key={i}>• {warning}</li>
+                      ))}
+                      {importResult.warnings.length > 8 && (
+                        <li>... 还有 {importResult.warnings.length - 8} 项警告</li>
                       )}
                     </ul>
                   </div>
@@ -206,7 +249,12 @@ export const BackupRestore = () => {
                   </button>
                   <button
                     onClick={handleImport}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                    disabled={!importResult.success}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      importResult.success
+                        ? 'text-white bg-primary-600 hover:bg-primary-700'
+                        : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                    }`}
                   >
                     确认导入
                   </button>

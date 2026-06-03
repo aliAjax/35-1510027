@@ -108,7 +108,11 @@ export interface BackupData {
 export interface ImportResult {
   success: boolean;
   entriesCount: number;
+  validEntriesCount: number;
   duplicateCount: number;
+  currentEntriesCount: number;
+  overwriteCount: number;
   errors: string[];
+  warnings: string[];
   data?: BackupData;
 }
