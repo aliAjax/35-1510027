@@ -1,5 +1,6 @@
 import { Search, Plus, Heart, BookMarked, BookOpen, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
+import { BackupRestore } from './BackupRestore';
 
 export const SearchBar = () => {
   const { filters, setFilters, openForm, getStats } = useEntryStore();
@@ -30,10 +31,13 @@ export const SearchBar = () => {
               </button>
             )}
           </div>
-          <button onClick={() => openForm()} className="btn-primary whitespace-nowrap flex items-center justify-center gap-2">
-            <Plus size={18} />
-            添加新粮
-          </button>
+          <div className="flex items-center gap-2">
+            <BackupRestore />
+            <button onClick={() => openForm()} className="btn-primary whitespace-nowrap flex items-center justify-center gap-2">
+              <Plus size={18} />
+              添加新粮
+            </button>
+          </div>
         </div>
       </div>
 

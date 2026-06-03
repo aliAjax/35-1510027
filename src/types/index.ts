@@ -53,6 +53,10 @@ export interface EntryStore {
     unread: number;
     read: number;
   };
+  exportData: () => BackupData;
+  validateAndParseImport: (jsonString: string) => ImportResult;
+  importData: (data: BackupData, merge: boolean) => void;
+  clearAllData: () => void;
 }
 
 export const ENTRY_TYPES: EntryType[] = ['同人文', '同人漫', '视频', '音频', '图', '其他'];
@@ -93,3 +97,18 @@ export const TAG_COLORS: Record<FlavorTag, string> = {
   '车': 'bg-orange-100 text-orange-700',
   '清水': 'bg-sky-100 text-sky-700',
 };
+
+export interface BackupData {
+  version: string;
+  exportedAt: number;
+  entries: Entry[];
+  filters: FilterState;
+}
+
+export interface ImportResult {
+  success: boolean;
+  entriesCount: number;
+  duplicateCount: number;
+  errors: string[];
+  data?: BackupData;
+}
