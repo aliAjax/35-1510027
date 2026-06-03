@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -29,6 +29,8 @@ export const useEntryStore = create<EntryStore>()(
       detailEntry: null,
       isBatchImportOpen: false,
       isTagManagerOpen: false,
+      isReadingPlanOpen: false,
+      readingPlan: [],
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -138,6 +140,105 @@ export const useEntryStore = create<EntryStore>()(
         });
       },
 
+      openReadingPlan: () => {
+        set({
+          isReadingPlanOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+          isTagManagerOpen: false,
+        });
+      },
+
+      closeReadingPlan: () => {
+        set({
+          isReadingPlanOpen: false,
+        });
+      },
+
+      addToPlan: (entryId: string) => {
+        const { readingPlan } = get();
+        if (readingPlan.some((item) => item.entryId === entryId)) return;
+        const maxOrder = readingPlan.length > 0
+          ? Math.max(...readingPlan.map((item) => item.order))
+          : 0;
+        const newItem: ReadingPlanItem = {
+          entryId,
+          addedAt: Date.now(),
+          order: maxOrder + 1,
+          status: 'planned',
+        };
+        set({ readingPlan: [...readingPlan, newItem] });
+      },
+
+      removeFromPlan: (entryId: string) => {
+        set((state) => ({
+          readingPlan: state.readingPlan
+            .filter((item) => item.entryId !== entryId)
+            .map((item, idx) => ({ ...item, order: idx + 1 })),
+        }));
+      },
+
+      movePlanItem: (entryId: string, direction: 'up' | 'down') => {
+        const { readingPlan } = get();
+        const sorted = [...readingPlan].sort((a, b) => a.order - b.order);
+        const idx = sorted.findIndex((item) => item.entryId === entryId);
+        if (idx === -1) return;
+        if (direction === 'up' && idx === 0) return;
+        if (direction === 'down' && idx === sorted.length - 1) return;
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        const temp = sorted[idx];
+        sorted[idx] = sorted[swapIdx];
+        sorted[swapIdx] = temp;
+        set({
+          readingPlan: sorted.map((item, i) => ({ ...item, order: i + 1 })),
+        });
+      },
+
+      markPlanDone: (entryId: string) => {
+        set((state) => ({
+          readingPlan: state.readingPlan.map((item) =>
+            item.entryId === entryId
+              ? { ...item, status: 'done' as const }
+              : item
+          ),
+        }));
+        const { entries } = get();
+        const entry = entries.find((e) => e.id === entryId);
+        if (entry && (entry.readStatus === '未读' || entry.readStatus === '在读')) {
+          set((state) => ({
+            entries: state.entries.map((e) =>
+              e.id === entryId
+                ? { ...e, readStatus: '已读' as const, updatedAt: Date.now() }
+                : e
+            ),
+          }));
+        }
+      },
+
+      markPlanSkipped: (entryId: string) => {
+        set((state) => ({
+          readingPlan: state.readingPlan.map((item) =>
+            item.entryId === entryId
+              ? { ...item, status: 'skipped' as const }
+              : item
+          ),
+        }));
+      },
+
+      clearPlanCompleted: () => {
+        set((state) => ({
+          readingPlan: state.readingPlan
+            .filter((item) => item.status === 'planned')
+            .map((item, idx) => ({ ...item, order: idx + 1 })),
+        }));
+      },
+
+      getTodayPlanCount: () => {
+        const { readingPlan } = get();
+        return readingPlan.filter((item) => item.status === 'planned').length;
+      },
+
       addCustomTag: (name, color) => {
         const newTag: CustomTag = {
           id: generateId(),
@@ -224,12 +325,13 @@ export const useEntryStore = create<EntryStore>()(
       },
 
       getStats: () => {
-        const { entries } = get();
+        const { entries, readingPlan } = get();
         return {
           total: entries.length,
           favorites: entries.filter((e) => e.favorite).length,
           unread: entries.filter((e) => e.readStatus === '未读').length,
           read: entries.filter((e) => e.readStatus === '已读').length,
+          todayPlan: readingPlan.filter((item) => item.status === 'planned').length,
         };
       },
 
@@ -870,6 +972,7 @@ export const useEntryStore = create<EntryStore>()(
         entries: state.entries,
         customTags: state.customTags,
         filters: state.filters,
+        readingPlan: state.readingPlan,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -883,6 +986,7 @@ export const useEntryStore = create<EntryStore>()(
             customTags: entry.customTags || [],
           })) || [];
           state.customTags = state.customTags || [];
+          state.readingPlan = state.readingPlan || [];
         }
       },
     }

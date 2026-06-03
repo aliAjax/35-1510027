@@ -47,6 +47,8 @@ export interface EntryStore {
   detailEntry: Entry | null;
   isBatchImportOpen: boolean;
   isTagManagerOpen: boolean;
+  isReadingPlanOpen: boolean;
+  readingPlan: ReadingPlanItem[];
   addEntry: (entry: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEntry: (id: string, updates: Partial<Entry>) => void;
   deleteEntry: (id: string) => void;
@@ -61,6 +63,15 @@ export interface EntryStore {
   closeBatchImport: () => void;
   openTagManager: () => void;
   closeTagManager: () => void;
+  openReadingPlan: () => void;
+  closeReadingPlan: () => void;
+  addToPlan: (entryId: string) => void;
+  removeFromPlan: (entryId: string) => void;
+  movePlanItem: (entryId: string, direction: 'up' | 'down') => void;
+  markPlanDone: (entryId: string) => void;
+  markPlanSkipped: (entryId: string) => void;
+  clearPlanCompleted: () => void;
+  getTodayPlanCount: () => number;
   addCustomTag: (name: string, color: string) => void;
   updateCustomTag: (id: string, updates: Partial<CustomTag>) => void;
   deleteCustomTag: (id: string) => void;
@@ -72,6 +83,7 @@ export interface EntryStore {
     favorites: number;
     unread: number;
     read: number;
+    todayPlan: number;
   };
   exportData: () => BackupData;
   validateAndParseImport: (jsonString: string) => ImportResult;
@@ -213,6 +225,15 @@ export interface ParsedBatchEntry {
   isValid: boolean;
   errors: string[];
   warnings: string[];
+}
+
+export type PlanItemStatus = 'planned' | 'done' | 'skipped';
+
+export interface ReadingPlanItem {
+  entryId: string;
+  addedAt: number;
+  order: number;
+  status: PlanItemStatus;
 }
 
 export interface BatchImportResult {
