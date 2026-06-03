@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -31,6 +31,8 @@ export const useEntryStore = create<EntryStore>()(
       isTagManagerOpen: false,
       isReadingPlanOpen: false,
       readingPlan: [],
+      isDuplicateCheckerOpen: false,
+      duplicateGroups: [],
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -977,7 +979,197 @@ export const useEntryStore = create<EntryStore>()(
           customTags: [],
           filters: { ...defaultFilters },
           readingPlan: [],
+          duplicateGroups: [],
         });
+      },
+
+      openDuplicateChecker: () => {
+        set({
+          isDuplicateCheckerOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+          isTagManagerOpen: false,
+          isReadingPlanOpen: false,
+        });
+      },
+
+      closeDuplicateChecker: () => {
+        set({ isDuplicateCheckerOpen: false });
+      },
+
+      findDuplicates: () => {
+        const { entries } = get();
+        if (entries.length < 2) {
+          set({ duplicateGroups: [] });
+          return [];
+        }
+
+        const normalize = (str: string): string => {
+          return str
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, '')
+            .replace(/[^\w\u4e00-\u9fa5]/g, '');
+        };
+
+        const normalizeUrl = (url: string): string => {
+          try {
+            const u = new URL(url);
+            return u.hostname + u.pathname.replace(/\/$/, '');
+          } catch {
+            return normalize(url);
+          }
+        };
+
+        const isLooseMatch = (a: string, b: string): boolean => {
+          if (!a || !b) return false;
+          const normA = normalize(a);
+          const normB = normalize(b);
+          if (normA === normB) return true;
+          if (normA.includes(normB) || normB.includes(normA)) return true;
+          return false;
+        };
+
+        const isUrlMatch = (a: string, b: string): boolean => {
+          if (!a || !b) return false;
+          const urlA = normalizeUrl(a);
+          const urlB = normalizeUrl(b);
+          return urlA === urlB || urlA.includes(urlB) || urlB.includes(urlA);
+        };
+
+        const groups: DuplicateGroup[] = [];
+        const usedIds = new Set<string>();
+
+        for (let i = 0; i < entries.length; i++) {
+          const entryA = entries[i];
+          if (usedIds.has(entryA.id)) continue;
+
+          const matches: Entry[] = [entryA];
+          const reasons: string[] = [];
+
+          for (let j = i + 1; j < entries.length; j++) {
+            const entryB = entries[j];
+            if (usedIds.has(entryB.id)) continue;
+
+            const matchReasons: string[] = [];
+            let score = 0;
+
+            if (isLooseMatch(entryA.workName, entryB.workName)) {
+              matchReasons.push('作品名匹配');
+              score += 3;
+            }
+            if (isLooseMatch(entryA.cpName, entryB.cpName)) {
+              matchReasons.push('CP名匹配');
+              score += 2;
+            }
+            if (isLooseMatch(entryA.author, entryB.author)) {
+              matchReasons.push('作者匹配');
+              score += 2;
+            }
+            if (isUrlMatch(entryA.link, entryB.link)) {
+              matchReasons.push('链接匹配');
+              score += 4;
+            }
+
+            if (score >= 3) {
+              matches.push(entryB);
+              usedIds.add(entryB.id);
+              matchReasons.forEach((r) => {
+                if (!reasons.includes(r)) reasons.push(r);
+              });
+            }
+          }
+
+          if (matches.length > 1) {
+            usedIds.add(entryA.id);
+            const totalScore = matches.length * 2 + reasons.length;
+            groups.push({
+              id: generateId(),
+              entries: matches,
+              matchScore: totalScore,
+              matchReasons: reasons,
+              ignored: false,
+            });
+          }
+        }
+
+        groups.sort((a, b) => b.matchScore - a.matchScore);
+        set({ duplicateGroups: groups });
+        return groups;
+      },
+
+      ignoreDuplicateGroup: (groupId: string) => {
+        set((state) => ({
+          duplicateGroups: state.duplicateGroups.map((g) =>
+            g.id === groupId ? { ...g, ignored: true } : g
+          ),
+        }));
+      },
+
+      keepEntry: (groupId: string, entryId: string) => {
+        const { duplicateGroups } = get();
+        const group = duplicateGroups.find((g) => g.id === groupId);
+        if (!group) return;
+
+        const idsToDelete = group.entries
+          .map((e) => e.id)
+          .filter((id) => id !== entryId);
+
+        set((state) => ({
+          entries: state.entries.filter((e) => !idsToDelete.includes(e.id)),
+          duplicateGroups: state.duplicateGroups.filter((g) => g.id !== groupId),
+          readingPlan: state.readingPlan
+            .filter((item) => !idsToDelete.includes(item.entryId))
+            .map((item, idx) => ({ ...item, order: idx + 1 })),
+        }));
+      },
+
+      mergeEntries: (groupId: string, keepEntryId: string) => {
+        const { duplicateGroups, entries } = get();
+        const group = duplicateGroups.find((g) => g.id === groupId);
+        if (!group) return;
+
+        const keepEntry = entries.find((e) => e.id === keepEntryId);
+        if (!keepEntry) return;
+
+        const otherEntries = group.entries.filter((e) => e.id !== keepEntryId);
+
+        const mergedNotes: string[] = [keepEntry.notes];
+        const mergedTags = new Set(keepEntry.tags);
+        const mergedCustomTags = new Set(keepEntry.customTags);
+        let mergedFavorite = keepEntry.favorite;
+
+        otherEntries.forEach((entry) => {
+          if (entry.notes) mergedNotes.push(entry.notes);
+          entry.tags.forEach((t) => mergedTags.add(t));
+          entry.customTags.forEach((t) => mergedCustomTags.add(t));
+          if (entry.favorite) mergedFavorite = true;
+        });
+
+        const idsToDelete = otherEntries.map((e) => e.id);
+        const finalNotes = mergedNotes.filter(Boolean).join('\n\n---\n\n');
+
+        set((state) => ({
+          entries: state.entries
+            .map((e) =>
+              e.id === keepEntryId
+                ? {
+                    ...e,
+                    tags: Array.from(mergedTags),
+                    customTags: Array.from(mergedCustomTags),
+                    notes: finalNotes,
+                    favorite: mergedFavorite,
+                    updatedAt: Date.now(),
+                  }
+                : e
+            )
+            .filter((e) => !idsToDelete.includes(e.id)),
+          duplicateGroups: state.duplicateGroups.filter((g) => g.id !== groupId),
+          readingPlan: state.readingPlan
+            .filter((item) => !idsToDelete.includes(item.entryId))
+            .map((item, idx) => ({ ...item, order: idx + 1 })),
+        }));
       },
     }),
     {
@@ -987,6 +1179,7 @@ export const useEntryStore = create<EntryStore>()(
         customTags: state.customTags,
         filters: state.filters,
         readingPlan: state.readingPlan,
+        duplicateGroups: state.duplicateGroups,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -1001,6 +1194,8 @@ export const useEntryStore = create<EntryStore>()(
           })) || [];
           state.customTags = state.customTags || [];
           state.readingPlan = state.readingPlan || [];
+          state.duplicateGroups = state.duplicateGroups || [];
+          state.isDuplicateCheckerOpen = false;
           if (state.readingPlan.length > 0 && state.entries.length > 0) {
             const entryIds = new Set(state.entries.map((e) => e.id));
             state.readingPlan = state.readingPlan

@@ -1,9 +1,9 @@
-import { Search, Plus, Heart, BookMarked, BookOpen, Clock, FileSpreadsheet, Tags, CalendarCheck } from 'lucide-react';
+import { Search, Plus, Heart, BookMarked, BookOpen, Clock, FileSpreadsheet, Tags, CalendarCheck, Copy } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { BackupRestore } from './BackupRestore';
 
 export const SearchBar = () => {
-  const { filters, setFilters, openForm, openBatchImport, openTagManager, openReadingPlan, getStats } = useEntryStore();
+  const { filters, setFilters, openForm, openBatchImport, openTagManager, openReadingPlan, openDuplicateChecker, getStats } = useEntryStore();
   const stats = getStats();
 
   return (
@@ -56,6 +56,14 @@ export const SearchBar = () => {
             >
               <CalendarCheck size={18} />
               <span className="hidden sm:inline">阅读计划</span>
+            </button>
+            <button
+              onClick={() => openDuplicateChecker()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-display font-medium text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              title="重复检查"
+            >
+              <Copy size={18} />
+              <span className="hidden sm:inline">重复检查</span>
             </button>
             <button onClick={() => openForm()} className="btn-primary whitespace-nowrap flex items-center justify-center gap-2">
               <Plus size={18} />

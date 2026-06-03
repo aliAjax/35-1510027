@@ -37,7 +37,7 @@ export interface FilterState {
   searchKeyword: string;
 }
 
-export interface EntryStore {
+export interface EntryStore extends DuplicateCheckStore {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
@@ -242,4 +242,23 @@ export interface BatchImportResult {
   invalidRows: number;
   entries: ParsedBatchEntry[];
   hasErrors: boolean;
+}
+
+export interface DuplicateGroup {
+  id: string;
+  entries: Entry[];
+  matchScore: number;
+  matchReasons: string[];
+  ignored: boolean;
+}
+
+export interface DuplicateCheckStore {
+  isDuplicateCheckerOpen: boolean;
+  duplicateGroups: DuplicateGroup[];
+  openDuplicateChecker: () => void;
+  closeDuplicateChecker: () => void;
+  findDuplicates: () => DuplicateGroup[];
+  ignoreDuplicateGroup: (groupId: string) => void;
+  keepEntry: (groupId: string, entryId: string) => void;
+  mergeEntries: (groupId: string, keepEntryId: string) => void;
 }

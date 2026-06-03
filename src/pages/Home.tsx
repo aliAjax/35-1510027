@@ -9,6 +9,7 @@ import { DetailModal } from '../components/DetailModal';
 import { BatchImport } from '../components/BatchImport';
 import { TagManager } from '../components/TagManager';
 import { ReadingPlan } from '../components/ReadingPlan';
+import { DuplicateChecker } from '../components/DuplicateChecker';
 import { loadSampleDataIfEmpty } from '../utils/sampleData';
 
 export default function Home() {
@@ -73,6 +74,7 @@ export default function Home() {
       <BatchImport />
       <TagManager />
       <ReadingPlan />
+      <DuplicateChecker />
     </div>
   );
 }
