@@ -4,8 +4,12 @@ import { useEntryStore } from '../store/useEntryStore';
 import { EntryCard } from './EntryCard';
 
 export const EntryList = () => {
-  const { getFilteredEntries, entries } = useEntryStore();
-  const filteredEntries = useMemo(() => getFilteredEntries(), [entries, getFilteredEntries]);
+  const { getFilteredEntries, entries, filters } = useEntryStore();
+  const filteredEntries = useMemo(
+    () => getFilteredEntries(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [entries, filters]
+  );
 
   if (filteredEntries.length === 0) {
     return (

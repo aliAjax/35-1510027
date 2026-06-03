@@ -9,7 +9,7 @@ import {
   TYPE_COLORS,
   TAG_COLORS,
 } from '../types';
-import type { Entry, EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
+import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
 
 interface FormData {
   workName: string;
