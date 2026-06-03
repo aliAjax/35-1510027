@@ -1050,8 +1050,71 @@ export const useEntryStore = create<EntryStore>()(
           return ratio >= 0.6;
         };
 
-        const groups: DuplicateGroup[] = [];
-        const usedIds = new Set<string>();
+        const parent = new Map<string, string>();
+        entries.forEach((e) => parent.set(e.id, e.id));
+
+        const find = (id: string): string => {
+          if (parent.get(id) !== id) {
+            parent.set(id, find(parent.get(id)!));
+          }
+          return parent.get(id)!;
+        };
+
+        const union = (id1: string, id2: string) => {
+          const r1 = find(id1);
+          const r2 = find(id2);
+          if (r1 !== r2) {
+            parent.set(r1, r2);
+          }
+        };
+
+        const pairReasons = new Map<string, string[]>();
+
+        for (let i = 0; i < entries.length; i++) {
+          for (let j = i + 1; j < entries.length; j++) {
+            const a = entries[i];
+            const b = entries[j];
+
+            const matchReasons: string[] = [];
+            let score = 0;
+            let hasLinkMatch = false;
+
+            if (isLooseMatch(a.workName, b.workName)) {
+              matchReasons.push('作品名匹配');
+              score += 2;
+            }
+            if (isLooseMatch(a.cpName, b.cpName)) {
+              matchReasons.push('CP名匹配');
+              score += 2;
+            }
+            if (isLooseMatch(a.author, b.author)) {
+              matchReasons.push('作者匹配');
+              score += 2;
+            }
+            if (isUrlMatch(a.link, b.link)) {
+              matchReasons.push('链接匹配');
+              score += 3;
+              hasLinkMatch = true;
+            }
+
+            const isDuplicate = hasLinkMatch || score >= 4;
+
+            if (isDuplicate) {
+              union(a.id, b.id);
+              const pairKey = [a.id, b.id].sort().join('|');
+              pairReasons.set(pairKey, matchReasons);
+            }
+          }
+        }
+
+        const clusters = new Map<string, Entry[]>();
+        entries.forEach((e) => {
+          const root = find(e.id);
+          if (!clusters.has(root)) {
+            clusters.set(root, []);
+          }
+          clusters.get(root)!.push(e);
+        });
 
         const prevIgnoredKeys = new Set<string>();
         get().duplicateGroups.forEach((g) => {
@@ -1061,60 +1124,34 @@ export const useEntryStore = create<EntryStore>()(
           }
         });
 
-        for (let i = 0; i < entries.length; i++) {
-          const entryA = entries[i];
-          if (usedIds.has(entryA.id)) continue;
+        const groups: DuplicateGroup[] = [];
 
-          const matches: Entry[] = [entryA];
-          const reasons: string[] = [];
+        clusters.forEach((clusterEntries) => {
+          if (clusterEntries.length <= 1) return;
 
-          for (let j = i + 1; j < entries.length; j++) {
-            const entryB = entries[j];
-            if (usedIds.has(entryB.id)) continue;
-
-            const matchReasons: string[] = [];
-            let score = 0;
-
-            if (isLooseMatch(entryA.workName, entryB.workName)) {
-              matchReasons.push('作品名匹配');
-              score += 3;
-            }
-            if (isLooseMatch(entryA.cpName, entryB.cpName)) {
-              matchReasons.push('CP名匹配');
-              score += 2;
-            }
-            if (isLooseMatch(entryA.author, entryB.author)) {
-              matchReasons.push('作者匹配');
-              score += 2;
-            }
-            if (isUrlMatch(entryA.link, entryB.link)) {
-              matchReasons.push('链接匹配');
-              score += 4;
-            }
-
-            if (score >= 3) {
-              matches.push(entryB);
-              usedIds.add(entryB.id);
-              matchReasons.forEach((r) => {
-                if (!reasons.includes(r)) reasons.push(r);
-              });
+          const allReasons = new Set<string>();
+          for (let i = 0; i < clusterEntries.length; i++) {
+            for (let j = i + 1; j < clusterEntries.length; j++) {
+              const pairKey = [clusterEntries[i].id, clusterEntries[j].id].sort().join('|');
+              const reasons = pairReasons.get(pairKey);
+              if (reasons) {
+                reasons.forEach((r) => allReasons.add(r));
+              }
             }
           }
 
-          if (matches.length > 1) {
-            usedIds.add(entryA.id);
-            const totalScore = matches.length * 2 + reasons.length;
-            const groupKey = matches.map((e) => e.id).sort().join('|');
-            const wasIgnored = prevIgnoredKeys.has(groupKey);
-            groups.push({
-              id: generateId(),
-              entries: matches,
-              matchScore: totalScore,
-              matchReasons: reasons,
-              ignored: wasIgnored,
-            });
-          }
-        }
+          const totalScore = clusterEntries.length * 2 + allReasons.size;
+          const groupKey = clusterEntries.map((e) => e.id).sort().join('|');
+          const wasIgnored = prevIgnoredKeys.has(groupKey);
+
+          groups.push({
+            id: generateId(),
+            entries: clusterEntries,
+            matchScore: totalScore,
+            matchReasons: Array.from(allReasons),
+            ignored: wasIgnored,
+          });
+        });
 
         groups.sort((a, b) => b.matchScore - a.matchScore);
         set({ duplicateGroups: groups });
