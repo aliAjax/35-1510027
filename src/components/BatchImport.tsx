@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Upload, FileText, AlertTriangle, CheckCircle, Info, ClipboardPaste } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import type { BatchImportResult, ParsedBatchEntry } from '../types';
-import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS } from '../types';
+import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
 
 type ImportMode = 'text' | 'csv';
 
@@ -355,8 +355,7 @@ export const BatchImport = () => {
                               return tag ? (
                                 <span
                                   key={tagId}
-                                  className="inline-block px-1.5 py-0.5 rounded text-xs text-white"
-                                  style={{ backgroundColor: tag.color }}
+                                  className={`inline-block px-1.5 py-0.5 rounded text-xs ${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'}`}
                                 >
                                   {tag.name}
                                 </span>
