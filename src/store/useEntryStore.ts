@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -201,6 +201,11 @@ export const useEntryStore = create<EntryStore>()(
           warnings.push('缺少导出时间信息');
         }
 
+        const validTypes = new Set<string>(ENTRY_TYPES);
+        const validStatuses = new Set<string>(COMPLETION_STATUSES);
+        const validReadStatuses = new Set<string>(READ_STATUSES);
+        const validTags = new Set<string>(FLAVOR_TAGS);
+
         if (!Array.isArray(data.entries)) {
           return {
             success: false,
@@ -214,25 +219,41 @@ export const useEntryStore = create<EntryStore>()(
           };
         }
 
+        if (data.entries.length === 0) {
+          warnings.push('备份文件中没有条目数据');
+        }
+
         if (!data.filters || typeof data.filters !== 'object' || Array.isArray(data.filters)) {
           warnings.push('筛选配置缺失或格式错误，将使用默认配置');
           data.filters = { ...defaultFilters };
         } else {
-          if (typeof data.filters.cpName !== 'string') warnings.push('筛选配置 cpName 格式错误');
-          if (typeof data.filters.favoriteOnly !== 'boolean') warnings.push('筛选配置 favoriteOnly 格式错误');
-          if (typeof data.filters.searchKeyword !== 'string') warnings.push('筛选配置 searchKeyword 格式错误');
+          const rawFilters = data.filters as unknown as Record<string, unknown>;
+          if (typeof rawFilters.cpName !== 'string') warnings.push('筛选配置 cpName 格式错误');
+          if (typeof rawFilters.favoriteOnly !== 'boolean') warnings.push('筛选配置 favoriteOnly 格式错误');
+          if (typeof rawFilters.searchKeyword !== 'string') warnings.push('筛选配置 searchKeyword 格式错误');
+          if (rawFilters.type !== 'all' && (typeof rawFilters.type !== 'string' || !validTypes.has(rawFilters.type))) {
+            warnings.push(`筛选配置 type 值无效: ${String(rawFilters.type)}`);
+          }
+          if (rawFilters.readStatus !== 'all' && (typeof rawFilters.readStatus !== 'string' || !validReadStatuses.has(rawFilters.readStatus))) {
+            warnings.push(`筛选配置 readStatus 值无效: ${String(rawFilters.readStatus)}`);
+          }
+          if (Array.isArray(rawFilters.tags)) {
+            (rawFilters.tags as unknown[]).forEach((tag) => {
+              if (typeof tag !== 'string' || !validTags.has(tag)) {
+                warnings.push(`筛选配置包含无效标签: ${String(tag)}`);
+              }
+            });
+          } else if (rawFilters.tags !== undefined) {
+            warnings.push('筛选配置 tags 格式错误，应为数组');
+          }
         }
-
-        const validTypes = new Set<string>(ENTRY_TYPES);
-        const validStatuses = new Set<string>(COMPLETION_STATUSES);
-        const validReadStatuses = new Set<string>(READ_STATUSES);
-        const validTags = new Set<string>(FLAVOR_TAGS);
 
         const rawEntries = data.entries as unknown as Record<string, unknown>[];
         let validEntriesCount = 0;
+        const seenIds = new Set<string>();
 
         rawEntries.forEach((entry, index) => {
-          if (!entry || typeof entry !== 'object') {
+          if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
             errors.push(`第 ${index + 1} 条数据不是有效对象`);
             return;
           }
@@ -241,6 +262,10 @@ export const useEntryStore = create<EntryStore>()(
 
           if (typeof entry.id !== 'string' || !entry.id) {
             errors.push(`${label}缺少有效 id`);
+          } else if (seenIds.has(entry.id)) {
+            warnings.push(`${label}id 与已有条目重复: ${entry.id}`);
+          } else {
+            seenIds.add(entry.id);
           }
           if (typeof entry.workName !== 'string' || !entry.workName.trim()) {
             errors.push(`${label}缺少作品名称`);
