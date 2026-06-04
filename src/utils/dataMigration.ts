@@ -510,7 +510,7 @@ export function migrateData(rawData: unknown): MigrationResult {
   let backupKey = '';
   let backupCreated = false;
 
-  if (fromVersion < CURRENT_SCHEMA_VERSION) {
+  if (fromVersion !== CURRENT_SCHEMA_VERSION) {
     try {
       backupKey = createBackup(rawData);
       backupCreated = !!backupKey;
