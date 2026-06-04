@@ -31,7 +31,7 @@ export const SearchBar = () => {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <BackupRestore />
             <button
               onClick={() => openBatchImport()}
@@ -59,7 +59,7 @@ export const SearchBar = () => {
             </button>
             <button
               onClick={() => openKanban()}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-display font-medium text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-display font-medium bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors"
               title="收藏看板"
             >
               <LayoutGrid size={18} />

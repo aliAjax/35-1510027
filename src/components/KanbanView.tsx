@@ -21,7 +21,6 @@ import {
   READ_STATUS_COLORS,
   TAG_COLORS,
   CUSTOM_TAG_COLORS,
-  READ_STATUSES,
   ENTRY_TYPES,
 } from '../types';
 import type { Entry, KanbanViewMode } from '../types';
@@ -109,18 +108,19 @@ export const KanbanView = () => {
           return countB - countA;
         });
         break;
-      case 'type':
+      case 'type': {
         const typeOrder = ENTRY_TYPES.reduce<Record<string, number>>((acc, t, i) => {
           acc[t] = i;
           return acc;
         }, {});
         keys.sort((a, b) => (typeOrder[a] ?? 99) - (typeOrder[b] ?? 99));
         break;
+      }
     }
     return keys;
   }, [grouped, kanbanViewMode]);
 
-  const allExpanded = sortedGroupKeys.length > 0 && sortedGroupKeys.every((k) => expandedKanbanGroups[k]);
+  const allExpanded = sortedGroupKeys.length > 0 && sortedGroupKeys.every((k) => expandedKanbanGroups[k] !== false);
 
   const handleExpandAll = useCallback(() => {
     expandAllKanbanGroups(sortedGroupKeys);
