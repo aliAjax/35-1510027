@@ -490,6 +490,18 @@ export function saveMigrationInfo(info: MigrationInfo): void {
   }
 }
 
+function recordMigrationResult(
+  result: MigrationResult,
+  backupKey: string
+): void {
+  const info = getMigrationInfo();
+  info.lastMigration = Date.now();
+  info.lastMigrationResult = result;
+  info.pendingRestore = !result.success && result.backupCreated;
+  info.lastBackupKey = backupKey || info.lastBackupKey;
+  saveMigrationInfo(info);
+}
+
 export function migrateData(rawData: unknown): MigrationResult {
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -519,7 +531,7 @@ export function migrateData(rawData: unknown): MigrationResult {
     } else if (fromVersion === 1) {
       migratedData = migrateV1ToV2(rawData as PersistedStateV1, warnings);
     } else if (fromVersion === CURRENT_SCHEMA_VERSION) {
-      return {
+      const result: MigrationResult = {
         success: true,
         fromVersion,
         toVersion: CURRENT_SCHEMA_VERSION,
@@ -528,9 +540,11 @@ export function migrateData(rawData: unknown): MigrationResult {
         migratedData: rawData as PersistedState,
         backupCreated: false,
       };
+      recordMigrationResult(result, '');
+      return result;
     } else {
       errors.push(`不支持从版本 ${fromVersion} 迁移`);
-      return {
+      const result: MigrationResult = {
         success: false,
         fromVersion,
         toVersion: CURRENT_SCHEMA_VERSION,
@@ -539,23 +553,11 @@ export function migrateData(rawData: unknown): MigrationResult {
         backupCreated,
         backupKey,
       };
+      recordMigrationResult(result, backupKey);
+      return result;
     }
 
-    const info = getMigrationInfo();
-    info.lastMigration = Date.now();
-    info.lastMigrationResult = {
-      success: true,
-      fromVersion,
-      toVersion: CURRENT_SCHEMA_VERSION,
-      warnings,
-      errors: [],
-      backupCreated,
-      backupKey,
-    };
-    info.lastBackupKey = backupKey || info.lastBackupKey;
-    saveMigrationInfo(info);
-
-    return {
+    const result: MigrationResult = {
       success: true,
       fromVersion,
       toVersion: CURRENT_SCHEMA_VERSION,
@@ -565,12 +567,12 @@ export function migrateData(rawData: unknown): MigrationResult {
       backupCreated,
       backupKey,
     };
+    recordMigrationResult(result, backupKey);
+    return result;
   } catch (e) {
     errors.push(`迁移失败: ${e instanceof Error ? e.message : String(e)}`);
 
-    const info = getMigrationInfo();
-    info.lastMigration = Date.now();
-    info.lastMigrationResult = {
+    const result: MigrationResult = {
       success: false,
       fromVersion,
       toVersion: CURRENT_SCHEMA_VERSION,
@@ -579,18 +581,7 @@ export function migrateData(rawData: unknown): MigrationResult {
       backupCreated,
       backupKey,
     };
-    info.pendingRestore = backupCreated;
-    info.lastBackupKey = backupKey || info.lastBackupKey;
-    saveMigrationInfo(info);
-
-    return {
-      success: false,
-      fromVersion,
-      toVersion: CURRENT_SCHEMA_VERSION,
-      warnings,
-      errors,
-      backupCreated,
-      backupKey,
-    };
+    recordMigrationResult(result, backupKey);
+    return result;
   }
 }
