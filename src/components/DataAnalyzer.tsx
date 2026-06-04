@@ -13,8 +13,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import type { DataAnalysisResult, EntryType, ReadStatus } from '../types';
-import { TYPE_COLORS, READ_STATUS_COLORS, ENTRY_TYPES } from '../types';
+import type { EntryType, ReadStatus, TrendDataItem } from '../types';
+import { TYPE_COLORS, READ_STATUS_COLORS } from '../types';
 
 const CHART_COLORS = [
   '#8b5cf6',
@@ -36,7 +36,6 @@ export const DataAnalyzer = () => {
     analyzeData,
     setFilters,
     resetFilters,
-    entries,
   } = useEntryStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
@@ -48,7 +47,7 @@ export const DataAnalyzer = () => {
     }
   }, [isDataAnalysisOpen]);
 
-  const analysisData = useMemo(() => analyzeData(), [analyzeData, entries]);
+  const analysisData = useMemo(() => analyzeData(), [analyzeData]);
 
   if (!isDataAnalysisOpen) return null;
 
@@ -78,6 +77,18 @@ export const DataAnalyzer = () => {
   const handleFavoriteClick = () => {
     resetFilters();
     setFilters({ favoriteOnly: true });
+    closeModal();
+  };
+
+  const handleDateClick = (trendItem: TrendDataItem) => {
+    const date = new Date(trendItem.timestamp);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const dateFrom = new Date(year, month, day, 0, 0, 0).getTime();
+    const dateTo = new Date(year, month, day, 23, 59, 59).getTime();
+    resetFilters();
+    setFilters({ dateFrom, dateTo });
     closeModal();
   };
 
@@ -158,7 +169,10 @@ export const DataAnalyzer = () => {
     );
   };
 
-  const renderTrendChart = (data: { date: string; count: number }[]) => {
+  const renderTrendChart = (
+    data: TrendDataItem[],
+    onClick?: (item: TrendDataItem) => void
+  ) => {
     const maxCount = Math.max(...data.map((d) => d.count), 1);
     const chartHeight = 120;
     const chartWidth = 100;
@@ -172,7 +186,11 @@ export const DataAnalyzer = () => {
           const y = chartHeight - barHeight;
 
           return (
-            <g key={index}>
+            <g
+              key={index}
+              onClick={() => onClick?.(item)}
+              className={onClick ? 'cursor-pointer' : ''}
+            >
               <rect
                 x={x}
                 y={y}
@@ -188,7 +206,7 @@ export const DataAnalyzer = () => {
                 textAnchor="middle"
                 fontSize="4"
                 fill="#6b7280"
-                className="font-display"
+                className="font-display pointer-events-none"
               >
                 {item.date.split('/')[1]}
               </text>
@@ -377,22 +395,23 @@ export const DataAnalyzer = () => {
       </div>
 
       <div className="glass-panel p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-bold text-gray-800 flex items-center gap-2">
-            <Calendar size={18} className="text-amber-500" />
-            近14天新增趋势
-          </h3>
-          <button
-            onClick={() => setActiveTab('trend')}
-            className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1 font-display"
-          >
-            查看详情 <ArrowRight size={14} />
-          </button>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-gray-800 flex items-center gap-2">
+              <Calendar size={18} className="text-amber-500" />
+              近14天新增趋势
+            </h3>
+            <button
+              onClick={() => setActiveTab('trend')}
+              className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1 font-display"
+            >
+              查看详情 <ArrowRight size={14} />
+            </button>
+          </div>
+          <div className="h-40">
+            {renderTrendChart(analysisData.trendData, handleDateClick)}
+          </div>
+          <p className="text-xs text-gray-400 text-center mt-2 font-display">点击柱状图查看对应日期的记录</p>
         </div>
-        <div className="h-40">
-          {renderTrendChart(analysisData.trendData)}
-        </div>
-      </div>
 
       <div className="glass-panel p-5">
         <div className="flex items-center justify-between mb-4">
@@ -538,16 +557,17 @@ export const DataAnalyzer = () => {
         近14天新增趋势
       </h3>
       <div className="h-64 mb-4">
-        {renderTrendChart(analysisData.trendData)}
+        {renderTrendChart(analysisData.trendData, handleDateClick)}
       </div>
       <div className="grid grid-cols-7 gap-2">
         {analysisData.trendData.map((item, index) => (
           <div
             key={index}
-            className="text-center p-2 rounded-lg bg-gray-50/50 hover:bg-primary-50/50 transition-colors"
+            className="text-center p-2 rounded-lg bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
+            onClick={() => handleDateClick(item)}
           >
-            <div className="text-xs text-gray-500 mb-1 font-display">{item.date}</div>
-            <div className="text-lg font-display font-bold text-primary-600">{item.count}</div>
+            <div className="text-xs text-gray-500 mb-1 font-display group-hover:text-primary-500 transition-colors">{item.date}</div>
+            <div className="text-lg font-display font-bold text-primary-600 group-hover:text-primary-700 transition-colors">{item.count}</div>
           </div>
         ))}
       </div>

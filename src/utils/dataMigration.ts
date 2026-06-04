@@ -67,6 +67,8 @@ const defaultFilters: FilterState = {
   readStatus: 'all',
   favoriteOnly: false,
   searchKeyword: '',
+  dateFrom: null,
+  dateTo: null,
 };
 
 const defaultEntry: Omit<Entry, 'id' | 'workName' | 'cpName' | 'createdAt' | 'updatedAt'> = {

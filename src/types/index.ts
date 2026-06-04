@@ -36,6 +36,8 @@ export interface FilterState {
   readStatus: ReadStatus | 'all';
   favoriteOnly: boolean;
   searchKeyword: string;
+  dateFrom: number | null;
+  dateTo: number | null;
 }
 
 export interface FilterFavorite {

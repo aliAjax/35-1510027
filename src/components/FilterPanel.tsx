@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, Heart, Tags } from 'lucide-react';
+import { Filter, RotateCcw, Heart, Tags, Calendar, X } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { FilterFavorites } from './FilterFavorites';
 import {
@@ -25,7 +25,18 @@ export const FilterPanel = () => {
     filters.customTags.length > 0 ||
     filters.readStatus !== 'all' ||
     filters.favoriteOnly ||
-    filters.searchKeyword;
+    filters.searchKeyword ||
+    filters.dateFrom !== null ||
+    filters.dateTo !== null;
+
+  const formatDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const clearDateFilter = () => {
+    setFilters({ dateFrom: null, dateTo: null });
+  };
 
   const toggleTag = (tag: FlavorTag) => {
     const newTags = filters.tags.includes(tag)
@@ -269,6 +280,30 @@ export const FilterPanel = () => {
             </button>
           </div>
         </div>
+
+        {(filters.dateFrom !== null || filters.dateTo !== null) && (
+          <div>
+            <label className="block text-xs font-display font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              创建日期
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg border border-primary-200">
+                <Calendar size={14} />
+                <span className="text-sm font-display">
+                  {filters.dateFrom !== null && formatDate(filters.dateFrom)}
+                  {filters.dateFrom !== null && filters.dateTo !== null && ' ~ '}
+                  {filters.dateTo !== null && formatDate(filters.dateTo)}
+                </span>
+                <button
+                  onClick={clearDateFilter}
+                  className="ml-1 p-0.5 rounded hover:bg-primary-200 transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
     </>

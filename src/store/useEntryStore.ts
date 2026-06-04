@@ -17,6 +17,8 @@ const defaultFilters: FilterState = {
   readStatus: 'all',
   favoriteOnly: false,
   searchKeyword: '',
+  dateFrom: null,
+  dateTo: null,
 };
 
 export const useEntryStore = create<EntryStore>()(
@@ -153,6 +155,8 @@ export const useEntryStore = create<EntryStore>()(
           cpName: validCpNames.has(favorite.filters.cpName)
             ? favorite.filters.cpName
             : '',
+          dateFrom: favorite.filters.dateFrom ?? null,
+          dateTo: favorite.filters.dateTo ?? null,
         };
 
         set({ filters: appliedFilters });
@@ -367,6 +371,8 @@ export const useEntryStore = create<EntryStore>()(
           if (filters.status !== 'all' && entry.status !== filters.status) return false;
           if (filters.readStatus !== 'all' && entry.readStatus !== filters.readStatus) return false;
           if (filters.favoriteOnly && !entry.favorite) return false;
+          if (filters.dateFrom !== null && entry.createdAt < filters.dateFrom) return false;
+          if (filters.dateTo !== null && entry.createdAt > filters.dateTo) return false;
           if (filters.tags.length > 0) {
             const hasAllTags = filters.tags.every((tag) => entry.tags.includes(tag));
             if (!hasAllTags) return false;
@@ -574,6 +580,8 @@ export const useEntryStore = create<EntryStore>()(
             readStatus: rawFilters.readStatus as ReadStatus | 'all',
             favoriteOnly: rawFilters.favoriteOnly as boolean,
             searchKeyword: rawFilters.searchKeyword as string,
+            dateFrom: (rawFilters.dateFrom as number | null) ?? null,
+            dateTo: (rawFilters.dateTo as number | null) ?? null,
           };
         }
 
