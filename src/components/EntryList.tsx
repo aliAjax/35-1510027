@@ -1,15 +1,17 @@
-import { useMemo } from 'react';
-import { BookOpen, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { BookOpen, Sparkles, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { EntryCard } from './EntryCard';
+import { SORT_OPTIONS, type SortOption } from '../types';
 
 export const EntryList = () => {
-  const { getFilteredEntries, entries, filters } = useEntryStore();
-  const filteredEntries = useMemo(
-    () => getFilteredEntries(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, filters]
-  );
+  const { getFilteredEntries, entries, filters, sortOption, setSortOption, sortEntries } = useEntryStore();
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+
+  const filteredEntries = useMemo(() => {
+    const filtered = getFilteredEntries();
+    return sortEntries(filtered);
+  }, [entries, filters, sortEntries, getFilteredEntries]);
 
   if (filteredEntries.length === 0) {
     return (
@@ -35,6 +37,13 @@ export const EntryList = () => {
     );
   }
 
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortOption)?.label || '';
+
+  const handleSortChange = (option: SortOption) => {
+    setSortOption(option);
+    setIsSortDropdownOpen(false);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -42,6 +51,41 @@ export const EntryList = () => {
           找到 <span className="font-semibold text-primary-600">{filteredEntries.length}</span> 条
           {filteredEntries.length !== entries.length && (
             <span className="text-gray-400"> / 共 {entries.length} 条</span>
+          )}
+        </div>
+
+        <div className="relative">
+          <button
+            onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-display bg-white rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50/50 transition-all shadow-sm"
+          >
+            <ArrowUpDown size={14} className="text-gray-500" />
+            <span className="text-gray-700">{currentSortLabel}</span>
+            <ChevronDown size={14} className={`text-gray-400 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isSortDropdownOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setIsSortDropdownOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 max-h-80 overflow-y-auto">
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleSortChange(option.value)}
+                    className={`w-full px-4 py-2 text-left text-sm font-display transition-colors ${
+                      sortOption === option.value
+                        ? 'bg-primary-50 text-primary-600'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>

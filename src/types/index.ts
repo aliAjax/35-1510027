@@ -53,6 +53,7 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   customTags: CustomTag[];
   filters: FilterState;
   filterFavorites: FilterFavorite[];
+  sortOption: SortOption;
   editingEntry: Entry | null;
   isFormOpen: boolean;
   isDetailOpen: boolean;
@@ -70,6 +71,8 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   toggleFavorite: (id: string) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;
+  setSortOption: (option: SortOption) => void;
+  sortEntries: (entries: Entry[]) => Entry[];
   addFilterFavorite: (name: string, filters: FilterState) => void;
   updateFilterFavorite: (id: string, updates: Partial<FilterFavorite>) => void;
   deleteFilterFavorite: (id: string) => void;
@@ -270,6 +273,31 @@ export interface BatchImportResult {
 }
 
 export type KanbanViewMode = 'cp' | 'work' | 'readStatus' | 'type';
+
+export type SortOption =
+  | 'createdAtDesc'
+  | 'createdAtAsc'
+  | 'updatedAtDesc'
+  | 'updatedAtAsc'
+  | 'workNameAsc'
+  | 'workNameDesc'
+  | 'cpNameAsc'
+  | 'cpNameDesc'
+  | 'favoriteFirst'
+  | 'readStatus';
+
+export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'createdAtDesc', label: '创建时间（新→旧）' },
+  { value: 'createdAtAsc', label: '创建时间（旧→新）' },
+  { value: 'updatedAtDesc', label: '更新时间（新→旧）' },
+  { value: 'updatedAtAsc', label: '更新时间（旧→新）' },
+  { value: 'workNameAsc', label: '作品名（A→Z）' },
+  { value: 'workNameDesc', label: '作品名（Z→A）' },
+  { value: 'cpNameAsc', label: 'CP名（A→Z）' },
+  { value: 'cpNameDesc', label: 'CP名（Z→A）' },
+  { value: 'favoriteFirst', label: '收藏优先' },
+  { value: 'readStatus', label: '阅读状态' },
+];
 
 export interface DuplicateGroup {
   id: string;

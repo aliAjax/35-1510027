@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -21,6 +21,15 @@ const defaultFilters: FilterState = {
   dateTo: null,
 };
 
+const defaultSortOption: SortOption = 'createdAtDesc';
+
+const READ_STATUS_ORDER: Record<ReadStatus, number> = {
+  '在读': 0,
+  '未读': 1,
+  '已读': 2,
+  '弃坑': 3,
+};
+
 export const useEntryStore = create<EntryStore>()(
   persist(
     (set, get) => ({
@@ -28,6 +37,7 @@ export const useEntryStore = create<EntryStore>()(
       customTags: [],
       filters: { ...defaultFilters },
       filterFavorites: [],
+      sortOption: defaultSortOption,
       editingEntry: null,
       isFormOpen: false,
       isDetailOpen: false,
@@ -94,6 +104,52 @@ export const useEntryStore = create<EntryStore>()(
 
       resetFilters: () => {
         set({ filters: { ...defaultFilters } });
+      },
+
+      setSortOption: (option) => {
+        set({ sortOption: option });
+      },
+
+      sortEntries: (entries) => {
+        const { sortOption } = get();
+        const sorted = [...entries];
+
+        switch (sortOption) {
+          case 'createdAtDesc':
+            return sorted.sort((a, b) => b.createdAt - a.createdAt);
+          case 'createdAtAsc':
+            return sorted.sort((a, b) => a.createdAt - b.createdAt);
+          case 'updatedAtDesc':
+            return sorted.sort((a, b) => b.updatedAt - a.updatedAt);
+          case 'updatedAtAsc':
+            return sorted.sort((a, b) => a.updatedAt - b.updatedAt);
+          case 'workNameAsc':
+            return sorted.sort((a, b) => a.workName.localeCompare(b.workName, 'zh-CN'));
+          case 'workNameDesc':
+            return sorted.sort((a, b) => b.workName.localeCompare(a.workName, 'zh-CN'));
+          case 'cpNameAsc':
+            return sorted.sort((a, b) => a.cpName.localeCompare(b.cpName, 'zh-CN'));
+          case 'cpNameDesc':
+            return sorted.sort((a, b) => b.cpName.localeCompare(a.cpName, 'zh-CN'));
+          case 'favoriteFirst':
+            return sorted.sort((a, b) => {
+              if (a.favorite !== b.favorite) {
+                return a.favorite ? -1 : 1;
+              }
+              return b.createdAt - a.createdAt;
+            });
+          case 'readStatus':
+            return sorted.sort((a, b) => {
+              const orderA = READ_STATUS_ORDER[a.readStatus] ?? 99;
+              const orderB = READ_STATUS_ORDER[b.readStatus] ?? 99;
+              if (orderA !== orderB) {
+                return orderA - orderB;
+              }
+              return b.createdAt - a.createdAt;
+            });
+          default:
+            return sorted;
+        }
       },
 
       addFilterFavorite: (name, filters) => {
