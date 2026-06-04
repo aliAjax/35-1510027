@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Ban,
   BookMarked,
+  Sparkles,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
@@ -32,6 +33,7 @@ export const ReadingPlan = () => {
     markPlanDone,
     markPlanSkipped,
     clearPlanCompleted,
+    lastAddedCount,
   } = useEntryStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
@@ -276,6 +278,14 @@ export const ReadingPlan = () => {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
+          {lastAddedCount > 0 && (
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-emerald-700">
+              <Sparkles size={16} className="text-emerald-500" />
+              <span className="text-sm font-display">
+                本次新增 <strong>{lastAddedCount}</strong> 条条目到今日计划
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-4">
             <button
               onClick={() => setActiveTab('planned')}

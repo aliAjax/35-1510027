@@ -62,6 +62,7 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   isTagManagerOpen: boolean;
   isReadingPlanOpen: boolean;
   readingPlan: ReadingPlanItem[];
+  lastAddedCount: number;
   isKanbanOpen: boolean;
   kanbanViewMode: KanbanViewMode;
   expandedKanbanGroups: Record<string, boolean>;
@@ -94,6 +95,7 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   markPlanSkipped: (entryId: string) => void;
   clearPlanCompleted: () => void;
   getTodayPlanCount: () => number;
+  batchAddFilteredToPlan: () => void;
   addCustomTag: (name: string, color: string) => void;
   updateCustomTag: (id: string, updates: Partial<CustomTag>) => void;
   deleteCustomTag: (id: string) => void;

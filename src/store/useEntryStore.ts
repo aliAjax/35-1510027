@@ -53,6 +53,7 @@ export const useEntryStore = create<EntryStore>()(
       expandedKanbanGroups: {},
       isLinkManagerOpen: false,
       isDataAnalysisOpen: false,
+      lastAddedCount: 0,
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -290,6 +291,7 @@ export const useEntryStore = create<EntryStore>()(
       closeReadingPlan: () => {
         set({
           isReadingPlanOpen: false,
+          lastAddedCount: 0,
         });
       },
 
@@ -377,6 +379,34 @@ export const useEntryStore = create<EntryStore>()(
         return readingPlan.filter(
           (item) => item.status === 'planned' && entryIds.has(item.entryId)
         ).length;
+      },
+
+      batchAddFilteredToPlan: () => {
+        const { readingPlan, getFilteredEntries, sortEntries } = get();
+        const filtered = getFilteredEntries();
+        const sorted = sortEntries(filtered);
+        const planIdSet = new Set(readingPlan.map((item) => item.entryId));
+        const candidates = sorted.filter(
+          (e) => (e.readStatus === '未读' || e.readStatus === '在读') && !planIdSet.has(e.id)
+        );
+        if (candidates.length === 0) {
+          set({ lastAddedCount: 0, isReadingPlanOpen: true });
+          return;
+        }
+        const maxOrder = readingPlan.length > 0
+          ? Math.max(...readingPlan.map((item) => item.order))
+          : 0;
+        const newItems: ReadingPlanItem[] = candidates.map((entry, idx) => ({
+          entryId: entry.id,
+          addedAt: Date.now(),
+          order: maxOrder + idx + 1,
+          status: 'planned',
+        }));
+        set({
+          readingPlan: [...readingPlan, ...newItems],
+          lastAddedCount: candidates.length,
+          isReadingPlanOpen: true,
+        });
       },
 
       addCustomTag: (name, color) => {

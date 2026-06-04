@@ -1,17 +1,25 @@
 import { useMemo, useState } from 'react';
-import { BookOpen, Sparkles, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { BookOpen, Sparkles, ArrowUpDown, ChevronDown, CalendarPlus } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { EntryCard } from './EntryCard';
 import { SORT_OPTIONS, type SortOption } from '../types';
 
 export const EntryList = () => {
-  const { getFilteredEntries, entries, filters, sortOption, setSortOption, sortEntries } = useEntryStore();
+  const { getFilteredEntries, entries, filters, sortOption, setSortOption, sortEntries, readingPlan, batchAddFilteredToPlan } = useEntryStore();
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const filteredEntries = useMemo(() => {
     const filtered = getFilteredEntries();
     return sortEntries(filtered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, filters, sortOption, sortEntries, getFilteredEntries]);
+
+  const addableCount = useMemo(() => {
+    const planIdSet = new Set(readingPlan.map((item) => item.entryId));
+    return filteredEntries.filter(
+      (e) => (e.readStatus === '未读' || e.readStatus === '在读') && !planIdSet.has(e.id)
+    ).length;
+  }, [filteredEntries, readingPlan]);
 
   if (filteredEntries.length === 0) {
     return (
@@ -47,10 +55,21 @@ export const EntryList = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-gray-500 font-display">
-          找到 <span className="font-semibold text-primary-600">{filteredEntries.length}</span> 条
-          {filteredEntries.length !== entries.length && (
-            <span className="text-gray-400"> / 共 {entries.length} 条</span>
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-500 font-display">
+            找到 <span className="font-semibold text-primary-600">{filteredEntries.length}</span> 条
+            {filteredEntries.length !== entries.length && (
+              <span className="text-gray-400"> / 共 {entries.length} 条</span>
+            )}
+          </div>
+          {addableCount > 0 && (
+            <button
+              onClick={batchAddFilteredToPlan}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-display bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-all shadow-sm hover:shadow-md"
+            >
+              <CalendarPlus size={14} />
+              一键加入今日计划（{addableCount} 条）
+            </button>
           )}
         </div>
 
