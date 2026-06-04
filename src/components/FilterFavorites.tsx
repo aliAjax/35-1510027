@@ -20,16 +20,16 @@ export const FilterFavorites = () => {
 
   const isFiltersMatch = (fav: FilterFavorite): boolean => {
     return (
-      fav.filters.cpName === filters.cpName &&
-      fav.filters.type === filters.type &&
-      fav.filters.status === filters.status &&
-      fav.filters.readStatus === filters.readStatus &&
-      fav.filters.favoriteOnly === filters.favoriteOnly &&
-      fav.filters.searchKeyword === filters.searchKeyword &&
-      fav.filters.tags.length === filters.tags.length &&
-      fav.filters.tags.every((t) => filters.tags.includes(t)) &&
-      fav.filters.customTags.length === filters.customTags.length &&
-      fav.filters.customTags.every((t) => filters.customTags.includes(t))
+      (fav.filters.cpName || '') === filters.cpName &&
+      (fav.filters.type || 'all') === filters.type &&
+      (fav.filters.status || 'all') === filters.status &&
+      (fav.filters.readStatus || 'all') === filters.readStatus &&
+      (fav.filters.favoriteOnly ?? false) === filters.favoriteOnly &&
+      (fav.filters.searchKeyword || '') === filters.searchKeyword &&
+      (fav.filters.tags || []).length === filters.tags.length &&
+      (fav.filters.tags || []).every((t) => filters.tags.includes(t)) &&
+      (fav.filters.customTags || []).length === filters.customTags.length &&
+      (fav.filters.customTags || []).every((t) => filters.customTags.includes(t))
     );
   };
 

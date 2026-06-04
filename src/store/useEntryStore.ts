@@ -135,17 +135,18 @@ export const useEntryStore = create<EntryStore>()(
         const validCpNames = new Set(entries.map((e) => e.cpName));
 
         const appliedFilters: FilterState = {
+          ...defaultFilters,
           ...favorite.filters,
-          tags: favorite.filters.tags.filter((tag) => validTags.has(tag)),
-          customTags: favorite.filters.customTags.filter((tagId) => validCustomTagIds.has(tagId)),
-          type: favorite.filters.type === 'all' || validTypes.has(favorite.filters.type)
-            ? favorite.filters.type
+          tags: (favorite.filters.tags || []).filter((tag) => validTags.has(tag)),
+          customTags: (favorite.filters.customTags || []).filter((tagId) => validCustomTagIds.has(tagId)),
+          type: (favorite.filters.type || 'all') === 'all' || validTypes.has(favorite.filters.type)
+            ? favorite.filters.type || 'all'
             : 'all',
-          status: favorite.filters.status === 'all' || validStatuses.has(favorite.filters.status)
-            ? favorite.filters.status
+          status: (favorite.filters.status || 'all') === 'all' || validStatuses.has(favorite.filters.status)
+            ? favorite.filters.status || 'all'
             : 'all',
-          readStatus: favorite.filters.readStatus === 'all' || validReadStatuses.has(favorite.filters.readStatus)
-            ? favorite.filters.readStatus
+          readStatus: (favorite.filters.readStatus || 'all') === 'all' || validReadStatuses.has(favorite.filters.readStatus)
+            ? favorite.filters.readStatus || 'all'
             : 'all',
           cpName: validCpNames.has(favorite.filters.cpName)
             ? favorite.filters.cpName
