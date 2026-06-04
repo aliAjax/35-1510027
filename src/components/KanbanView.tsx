@@ -233,7 +233,7 @@ export const KanbanView = () => {
                 )}
               </span>
               <button
-                onClick={allExpanded ? collapseAllKanbanGroups : handleExpandAll}
+                onClick={allExpanded ? () => collapseAllKanbanGroups(sortedGroupKeys) : handleExpandAll}
                 className="flex items-center gap-1 text-xs font-display font-medium text-primary-600 hover:text-primary-700 transition-colors"
                 title={allExpanded ? '全部折叠' : '全部展开'}
               >

@@ -100,7 +100,7 @@ export interface EntryStore extends DuplicateCheckStore {
   setKanbanViewMode: (mode: KanbanViewMode) => void;
   toggleKanbanGroup: (groupKey: string) => void;
   expandAllKanbanGroups: (groupKeys: string[]) => void;
-  collapseAllKanbanGroups: () => void;
+  collapseAllKanbanGroups: (groupKeys: string[]) => void;
 }
 
 export const ENTRY_TYPES: EntryType[] = ['同人文', '同人漫', '视频', '音频', '图', '其他'];

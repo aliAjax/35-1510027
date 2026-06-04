@@ -1008,12 +1008,15 @@ export const useEntryStore = create<EntryStore>()(
       },
 
       toggleKanbanGroup: (groupKey: string) => {
-        set((state) => ({
-          expandedKanbanGroups: {
-            ...state.expandedKanbanGroups,
-            [groupKey]: !state.expandedKanbanGroups[groupKey],
-          },
-        }));
+        set((state) => {
+          const isExpanded = state.expandedKanbanGroups[groupKey] !== false;
+          return {
+            expandedKanbanGroups: {
+              ...state.expandedKanbanGroups,
+              [groupKey]: !isExpanded,
+            },
+          };
+        });
       },
 
       expandAllKanbanGroups: (groupKeys: string[]) => {
@@ -1022,8 +1025,10 @@ export const useEntryStore = create<EntryStore>()(
         set({ expandedKanbanGroups: expanded });
       },
 
-      collapseAllKanbanGroups: () => {
-        set({ expandedKanbanGroups: {} });
+      collapseAllKanbanGroups: (groupKeys: string[]) => {
+        const collapsed: Record<string, boolean> = {};
+        groupKeys.forEach((key) => { collapsed[key] = false; });
+        set({ expandedKanbanGroups: collapsed });
       },
 
       openDuplicateChecker: () => {
