@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
+import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
 const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -1282,6 +1283,7 @@ export const useEntryStore = create<EntryStore>()(
     {
       name: 'cp-grain-list-data',
       partialize: (state) => ({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         entries: state.entries,
         customTags: state.customTags,
         filters: state.filters,
@@ -1290,8 +1292,28 @@ export const useEntryStore = create<EntryStore>()(
         kanbanViewMode: state.kanbanViewMode,
         expandedKanbanGroups: state.expandedKanbanGroups,
       }),
+      migrate: (persistedState: unknown) => {
+        const result = migrateData(persistedState);
+        
+        if (!result.success) {
+          console.error('数据迁移失败:', result.errors);
+          return persistedState;
+        }
+
+        if (result.warnings.length > 0) {
+          console.warn('数据迁移警告:', result.warnings);
+        }
+
+        return result.migratedData;
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
+          const persistedState = state as unknown as PersistedState;
+          
+          if (persistedState.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+            console.log(`Schema version mismatch: expected ${CURRENT_SCHEMA_VERSION}, got ${persistedState.schemaVersion}`);
+          }
+
           state.filters = {
             ...defaultFilters,
             ...state.filters,

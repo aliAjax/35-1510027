@@ -11,6 +11,7 @@ import { TagManager } from '../components/TagManager';
 import { ReadingPlan } from '../components/ReadingPlan';
 import { DuplicateChecker } from '../components/DuplicateChecker';
 import { KanbanView } from '../components/KanbanView';
+import { MigrationNotice } from '../components/MigrationNotice';
 import { loadSampleDataIfEmpty } from '../utils/sampleData';
 
 export default function Home() {
@@ -29,6 +30,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      <MigrationNotice />
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-purple-500 to-pink-400 opacity-90" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.3)_0%,transparent_50%),radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.2)_0%,transparent_40%)]" />
