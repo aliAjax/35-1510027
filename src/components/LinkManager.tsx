@@ -48,7 +48,7 @@ export const LinkManager = () => {
     }
   }, [isLinkManagerOpen]);
 
-  const analysisResult = useMemo(() => analyzeLinks(), [analyzeLinks]);
+  const analysisResult = useMemo(() => analyzeLinks(entries), [analyzeLinks, entries]);
 
   const matchFilter = useCallback((link: LinkInfo): boolean => {
     switch (filterType) {

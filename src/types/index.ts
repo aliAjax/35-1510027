@@ -326,6 +326,6 @@ export interface LinkManagerStore {
   isLinkManagerOpen: boolean;
   openLinkManager: () => void;
   closeLinkManager: () => void;
-  analyzeLinks: () => LinkAnalysisResult;
+  analyzeLinks: (entriesToAnalyze?: Entry[]) => LinkAnalysisResult;
   batchUpdateNotes: (entryIds: string[], notes: string) => void;
 }

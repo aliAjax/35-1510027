@@ -1124,8 +1124,8 @@ export const useEntryStore = create<EntryStore>()(
         set({ isLinkManagerOpen: false });
       },
 
-      analyzeLinks: (): LinkAnalysisResult => {
-        const { entries } = get();
+      analyzeLinks: (entriesToAnalyze?: Entry[]): LinkAnalysisResult => {
+        const entries = entriesToAnalyze ?? get().entries;
         
         const extractDomain = (url: string): string => {
           if (!url) return '无链接';
