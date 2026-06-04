@@ -935,7 +935,6 @@ export const useEntryStore = create<EntryStore>()(
 
         const toAdd: Entry[] = [];
         const toUpdate: { id: string; updates: Partial<Entry> }[] = [];
-        const skippedIds = new Set<string>();
 
         validEntries.forEach((entry, entryIndex) => {
           if (entry.importStrategy === 'skip' && entry.duplicates.length > 0) {
@@ -962,7 +961,6 @@ export const useEntryStore = create<EntryStore>()(
                 updatedAt: now,
               },
             });
-            skippedIds.add(primaryDuplicate.entry.id);
           } else if (entry.importStrategy === 'merge' && primaryDuplicate) {
             const existing = primaryDuplicate.entry;
             const mergedTags = Array.from(new Set([...existing.tags, ...entry.tags]));
@@ -980,7 +978,6 @@ export const useEntryStore = create<EntryStore>()(
                 updatedAt: now,
               },
             });
-            skippedIds.add(existing.id);
           } else {
             toAdd.push({
               id: generateId() + entryIndex.toString(),
@@ -1010,8 +1007,7 @@ export const useEntryStore = create<EntryStore>()(
             );
           });
 
-          const filteredExisting = updatedEntries.filter((e) => !skippedIds.has(e.id));
-          const finalEntries = [...toAdd, ...filteredExisting];
+          const finalEntries = [...toAdd, ...updatedEntries];
 
           return {
             entries: finalEntries,
