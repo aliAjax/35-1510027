@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   X,
   Link2,
@@ -36,8 +36,6 @@ export const LinkManager = () => {
   const [showBatchNotes, setShowBatchNotes] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
 
-  const analysisResult = useMemo(() => analyzeLinks(), [analyzeLinks, entries]);
-
   useEffect(() => {
     if (isLinkManagerOpen) {
       setIsAnimating(true);
@@ -49,6 +47,44 @@ export const LinkManager = () => {
       setSearchKeyword('');
     }
   }, [isLinkManagerOpen]);
+
+  const analysisResult = useMemo(() => analyzeLinks(), [analyzeLinks, entries]);
+
+  const matchFilter = useCallback((link: LinkInfo): boolean => {
+    switch (filterType) {
+      case 'issues':
+        return link.hasIssue;
+      case 'empty':
+        return link.issues.some((i) => i.type === 'empty');
+      case 'duplicate':
+        return link.issues.some((i) => i.type === 'duplicate');
+      case 'invalid':
+        return link.issues.some((i) => i.type === 'invalid');
+      default:
+        return true;
+    }
+  }, [filterType]);
+
+  const matchSearch = useCallback((link: LinkInfo): boolean => {
+    if (!searchKeyword) return true;
+    const keyword = searchKeyword.toLowerCase();
+    return (
+      link.workName.toLowerCase().includes(keyword) ||
+      link.cpName.toLowerCase().includes(keyword) ||
+      link.link.toLowerCase().includes(keyword) ||
+      link.domain.toLowerCase().includes(keyword) ||
+      link.notes.toLowerCase().includes(keyword)
+    );
+  }, [searchKeyword]);
+
+  const filteredGroups = useMemo(() => {
+    return analysisResult.domainGroups
+      .map((group) => ({
+        ...group,
+        links: group.links.filter((l) => matchFilter(l) && matchSearch(l)),
+      }))
+      .filter((group) => group.links.length > 0);
+  }, [analysisResult, matchFilter, matchSearch]);
 
   if (!isLinkManagerOpen) return null;
 
@@ -97,42 +133,6 @@ export const LinkManager = () => {
       return next;
     });
   };
-
-  const matchFilter = (link: LinkInfo): boolean => {
-    switch (filterType) {
-      case 'issues':
-        return link.hasIssue;
-      case 'empty':
-        return link.issues.some((i) => i.type === 'empty');
-      case 'duplicate':
-        return link.issues.some((i) => i.type === 'duplicate');
-      case 'invalid':
-        return link.issues.some((i) => i.type === 'invalid');
-      default:
-        return true;
-    }
-  };
-
-  const matchSearch = (link: LinkInfo): boolean => {
-    if (!searchKeyword) return true;
-    const keyword = searchKeyword.toLowerCase();
-    return (
-      link.workName.toLowerCase().includes(keyword) ||
-      link.cpName.toLowerCase().includes(keyword) ||
-      link.link.toLowerCase().includes(keyword) ||
-      link.domain.toLowerCase().includes(keyword) ||
-      link.notes.toLowerCase().includes(keyword)
-    );
-  };
-
-  const filteredGroups = useMemo(() => {
-    return analysisResult.domainGroups
-      .map((group) => ({
-        ...group,
-        links: group.links.filter((l) => matchFilter(l) && matchSearch(l)),
-      }))
-      .filter((group) => group.links.length > 0);
-  }, [analysisResult, filterType, searchKeyword]);
 
   const handleOpenLink = (link: string) => {
     if (link) {
@@ -276,7 +276,6 @@ export const LinkManager = () => {
   const renderDomainGroup = (group: LinkDomainGroup) => {
     const isExpanded = expandedDomains.has(group.domain);
     const allSelected = group.links.every((l) => selectedLinks.has(l.entryId));
-    const someSelected = group.links.some((l) => selectedLinks.has(l.entryId));
 
     return (
       <div key={group.domain} className="mb-4">

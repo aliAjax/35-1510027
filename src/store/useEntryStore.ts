@@ -1214,11 +1214,15 @@ export const useEntryStore = create<EntryStore>()(
 
       batchUpdateNotes: (entryIds: string[], notes: string) => {
         set((state) => ({
-          entries: state.entries.map((entry) =>
-            entryIds.includes(entry.id)
-              ? { ...entry, notes, updatedAt: Date.now() }
-              : entry
-          ),
+          entries: state.entries.map((entry) => {
+            if (!entryIds.includes(entry.id)) return entry;
+            const existingNotes = entry.notes ? entry.notes.trim() : '';
+            const newNotes = notes.trim();
+            const finalNotes = existingNotes && newNotes
+              ? `${existingNotes}\n\n${newNotes}`
+              : existingNotes || newNotes;
+            return { ...entry, notes: finalNotes, updatedAt: Date.now() };
+          }),
         }));
       },
 
