@@ -26,6 +26,8 @@ export const FilterFavorites = () => {
       (fav.filters.readStatus || 'all') === filters.readStatus &&
       (fav.filters.favoriteOnly ?? false) === filters.favoriteOnly &&
       (fav.filters.searchKeyword || '') === filters.searchKeyword &&
+      (fav.filters.dateFrom ?? null) === filters.dateFrom &&
+      (fav.filters.dateTo ?? null) === filters.dateTo &&
       (fav.filters.tags || []).length === filters.tags.length &&
       (fav.filters.tags || []).every((t) => filters.tags.includes(t)) &&
       (fav.filters.customTags || []).length === filters.customTags.length &&
