@@ -11,6 +11,7 @@ const generateId = (): string => {
 const defaultFilters: FilterState = {
   cpName: '',
   type: 'all',
+  status: 'all',
   tags: [],
   customTags: [],
   readStatus: 'all',
@@ -129,6 +130,7 @@ export const useEntryStore = create<EntryStore>()(
         const validTags = new Set<string>(FLAVOR_TAGS);
         const validCustomTagIds = new Set(customTags.map((t) => t.id));
         const validTypes = new Set<string>(ENTRY_TYPES);
+        const validStatuses = new Set<string>(COMPLETION_STATUSES);
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validCpNames = new Set(entries.map((e) => e.cpName));
 
@@ -138,6 +140,9 @@ export const useEntryStore = create<EntryStore>()(
           customTags: favorite.filters.customTags.filter((tagId) => validCustomTagIds.has(tagId)),
           type: favorite.filters.type === 'all' || validTypes.has(favorite.filters.type)
             ? favorite.filters.type
+            : 'all',
+          status: favorite.filters.status === 'all' || validStatuses.has(favorite.filters.status)
+            ? favorite.filters.status
             : 'all',
           readStatus: favorite.filters.readStatus === 'all' || validReadStatuses.has(favorite.filters.readStatus)
             ? favorite.filters.readStatus
@@ -356,6 +361,7 @@ export const useEntryStore = create<EntryStore>()(
           const entryCustomTags = entry.customTags || [];
           if (filters.cpName && entry.cpName !== filters.cpName) return false;
           if (filters.type !== 'all' && entry.type !== filters.type) return false;
+          if (filters.status !== 'all' && entry.status !== filters.status) return false;
           if (filters.readStatus !== 'all' && entry.readStatus !== filters.readStatus) return false;
           if (filters.favoriteOnly && !entry.favorite) return false;
           if (filters.tags.length > 0) {
@@ -517,6 +523,12 @@ export const useEntryStore = create<EntryStore>()(
             warnings.push(`筛选配置 type 缺失或值无效: ${String(rawFilters.type)}，已使用默认值`);
             rawFilters.type = 'all';
           }
+          if (typeof rawFilters.status !== 'string' || (rawFilters.status !== 'all' && !validStatuses.has(rawFilters.status))) {
+            if (rawFilters.status !== undefined) {
+              warnings.push(`筛选配置 status 缺失或值无效: ${String(rawFilters.status)}，已使用默认值`);
+            }
+            rawFilters.status = 'all';
+          }
           if (!Array.isArray(rawFilters.tags)) {
             if (rawFilters.tags !== undefined) warnings.push('筛选配置 tags 格式错误，已使用默认值');
             rawFilters.tags = [];
@@ -553,6 +565,7 @@ export const useEntryStore = create<EntryStore>()(
           data.filters = {
             cpName: rawFilters.cpName as string,
             type: rawFilters.type as EntryType | 'all',
+            status: rawFilters.status as CompletionStatus | 'all',
             tags: rawFilters.tags as FlavorTag[],
             customTags: rawFilters.customTags as string[],
             readStatus: rawFilters.readStatus as ReadStatus | 'all',

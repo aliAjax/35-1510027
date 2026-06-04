@@ -61,6 +61,7 @@ export interface MigrationInfo {
 const defaultFilters: FilterState = {
   cpName: '',
   type: 'all',
+  status: 'all',
   tags: [],
   customTags: [],
   readStatus: 'all',

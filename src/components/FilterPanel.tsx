@@ -3,13 +3,15 @@ import { useEntryStore } from '../store/useEntryStore';
 import { FilterFavorites } from './FilterFavorites';
 import {
   ENTRY_TYPES,
+  COMPLETION_STATUSES,
   READ_STATUSES,
   FLAVOR_TAGS,
   TYPE_COLORS,
+  STATUS_COLORS,
   TAG_COLORS,
   CUSTOM_TAG_COLORS,
 } from '../types';
-import type { EntryType, ReadStatus, FlavorTag } from '../types';
+import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
 
 export const FilterPanel = () => {
   const { filters, setFilters, resetFilters, getUniqueCpNames, customTags, openTagManager } = useEntryStore();
@@ -18,6 +20,7 @@ export const FilterPanel = () => {
   const hasActiveFilters =
     filters.cpName ||
     filters.type !== 'all' ||
+    filters.status !== 'all' ||
     filters.tags.length > 0 ||
     filters.customTags.length > 0 ||
     filters.readStatus !== 'all' ||
@@ -120,6 +123,41 @@ export const FilterPanel = () => {
                 }`}
               >
                 {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-display font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            完成状态
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilters({ status: 'all' })}
+              className={`btn-tag text-xs ${
+                filters.status === 'all'
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              全部
+            </button>
+            {COMPLETION_STATUSES.map((status) => (
+              <button
+                key={status}
+                onClick={() =>
+                  setFilters({
+                    status: (filters.status === status ? 'all' : status) as CompletionStatus | 'all',
+                  })
+                }
+                className={`btn-tag text-xs ${
+                  filters.status === status
+                    ? `${STATUS_COLORS[status]} shadow-md border-current`
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {status}
               </button>
             ))}
           </div>

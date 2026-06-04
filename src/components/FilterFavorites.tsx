@@ -22,6 +22,7 @@ export const FilterFavorites = () => {
     return (
       fav.filters.cpName === filters.cpName &&
       fav.filters.type === filters.type &&
+      fav.filters.status === filters.status &&
       fav.filters.readStatus === filters.readStatus &&
       fav.filters.favoriteOnly === filters.favoriteOnly &&
       fav.filters.searchKeyword === filters.searchKeyword &&

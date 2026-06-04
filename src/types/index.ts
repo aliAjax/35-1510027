@@ -30,6 +30,7 @@ export interface Entry {
 export interface FilterState {
   cpName: string;
   type: EntryType | 'all';
+  status: CompletionStatus | 'all';
   tags: FlavorTag[];
   customTags: string[];
   readStatus: ReadStatus | 'all';
