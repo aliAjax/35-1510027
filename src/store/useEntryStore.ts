@@ -1282,6 +1282,7 @@ export const useEntryStore = create<EntryStore>()(
     }),
     {
       name: 'cp-grain-list-data',
+      version: CURRENT_SCHEMA_VERSION,
       partialize: (state) => ({
         schemaVersion: CURRENT_SCHEMA_VERSION,
         entries: state.entries,
@@ -1292,16 +1293,22 @@ export const useEntryStore = create<EntryStore>()(
         kanbanViewMode: state.kanbanViewMode,
         expandedKanbanGroups: state.expandedKanbanGroups,
       }),
-      migrate: (persistedState: unknown) => {
+      migrate: (persistedState: unknown, persistedVersion: number) => {
+        console.log(`[Migration] 检测到存储版本 v${persistedVersion}，当前版本 v${CURRENT_SCHEMA_VERSION}`);
+        
         const result = migrateData(persistedState);
         
         if (!result.success) {
-          console.error('数据迁移失败:', result.errors);
+          console.error('[Migration] 数据迁移失败:', result.errors);
           return persistedState;
         }
 
         if (result.warnings.length > 0) {
-          console.warn('数据迁移警告:', result.warnings);
+          console.warn('[Migration] 数据迁移警告:', result.warnings);
+        }
+
+        if (result.fromVersion !== result.toVersion) {
+          console.log(`[Migration] 数据迁移完成: v${result.fromVersion} -> v${result.toVersion}`);
         }
 
         return result.migratedData;

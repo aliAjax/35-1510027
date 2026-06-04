@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, RefreshCw, Download, X, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import { getMigrationInfo, restoreFromBackup, listBackups, deleteBackup, type MigrationResult } from '../utils/dataMigration';
+import { getMigrationInfo, saveMigrationInfo, restoreFromBackup, listBackups, deleteBackup, type MigrationResult } from '../utils/dataMigration';
 
 export const MigrationNotice = () => {
   const [showNotice, setShowNotice] = useState(false);
@@ -9,23 +9,42 @@ export const MigrationNotice = () => {
   const [backups, setBackups] = useState<string[]>([]);
   const [showBackups, setShowBackups] = useState(false);
   const [restoreSuccess, setRestoreSuccess] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState(false);
 
   useEffect(() => {
     const info = getMigrationInfo();
-    if (info.lastMigrationResult && info.lastMigrationResult.warnings.length > 0) {
+    const hasMigrationResult = info.lastMigrationResult && (
+      info.lastMigrationResult.warnings.length > 0 ||
+      !info.lastMigrationResult.success ||
+      info.pendingRestore
+    );
+    
+    if (hasMigrationResult) {
       setMigrationResult(info.lastMigrationResult);
       setShowNotice(true);
+      setPendingRestore(info.pendingRestore);
+      if (info.pendingRestore || !info.lastMigrationResult?.success) {
+        setShowBackups(true);
+      }
     }
     setBackups(listBackups());
   }, []);
 
   const handleDismiss = () => {
+    if (pendingRestore) {
+      const info = getMigrationInfo();
+      info.pendingRestore = false;
+      saveMigrationInfo(info);
+    }
     setShowNotice(false);
   };
 
   const handleRestore = (backupKey: string) => {
     const success = restoreFromBackup(backupKey);
     if (success) {
+      const info = getMigrationInfo();
+      info.pendingRestore = false;
+      saveMigrationInfo(info);
       setRestoreSuccess(true);
       setTimeout(() => {
         window.location.reload();
@@ -92,8 +111,13 @@ export const MigrationNotice = () => {
                 从版本 {migrationResult.fromVersion} 迁移到 {migrationResult.toVersion}
               </p>
               {migrationResult.backupCreated && (
-                <p className="text-xs text-gray-500 mt-1">
-                  已创建备份，可在下方恢复
+                <p className={`text-xs mt-1 ${hasErrors ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                  {hasErrors ? '⚠️ 迁移失败，建议从下方备份恢复数据' : '已创建备份，可在下方恢复'}
+                </p>
+              )}
+              {pendingRestore && !migrationResult.backupCreated && (
+                <p className="text-xs text-red-600 font-medium mt-1">
+                  ⚠️ 上一次迁移失败，请从下方备份恢复
                 </p>
               )}
             </div>
