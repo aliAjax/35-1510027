@@ -1,4 +1,4 @@
-import type { Entry, FilterState, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode } from '../types';
+import type { Entry, FilterState, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, SortOption, FilterFavorite } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 export const CURRENT_SCHEMA_VERSION = 2;
@@ -32,10 +32,12 @@ export interface PersistedStateV2 {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
+  filterFavorites: FilterFavorite[];
   readingPlan: ReadingPlanItem[];
   duplicateGroups: DuplicateGroup[];
   kanbanViewMode: KanbanViewMode;
   expandedKanbanGroups: Record<string, boolean>;
+  sortOption: SortOption;
 }
 
 export type PersistedState = PersistedStateV2;
@@ -410,10 +412,12 @@ export function migrateV1ToV2(data: PersistedStateV1, warnings: string[]): Persi
     }),
     customTags: validateAndFixCustomTags(data.customTags, warnings),
     filters: validateAndFixFilters(data.filters, warnings),
+    filterFavorites: [],
     readingPlan: validateAndFixReadingPlan(data.readingPlan, entryIds, warnings),
     duplicateGroups: validateAndFixDuplicateGroups(data.duplicateGroups, entryIds, warnings),
     kanbanViewMode: isValidKanbanViewMode(data.kanbanViewMode) ? data.kanbanViewMode : 'cp',
     expandedKanbanGroups: data.expandedKanbanGroups || {},
+    sortOption: 'createdAtDesc',
   };
 }
 

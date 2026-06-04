@@ -1676,6 +1676,7 @@ export const useEntryStore = create<EntryStore>()(
         duplicateGroups: state.duplicateGroups,
         kanbanViewMode: state.kanbanViewMode,
         expandedKanbanGroups: state.expandedKanbanGroups,
+        sortOption: state.sortOption,
       }),
       migrate: (persistedState: unknown, persistedVersion: number) => {
         console.log(`[Migration] 检测到存储版本 v${persistedVersion}，当前版本 v${CURRENT_SCHEMA_VERSION}`);
@@ -1722,6 +1723,7 @@ export const useEntryStore = create<EntryStore>()(
           state.isKanbanOpen = false;
           state.kanbanViewMode = state.kanbanViewMode || 'cp';
           state.expandedKanbanGroups = state.expandedKanbanGroups || {};
+          state.sortOption = state.sortOption || defaultSortOption;
           if (state.readingPlan.length > 0 && state.entries.length > 0) {
             const entryIds = new Set(state.entries.map((e) => e.id));
             state.readingPlan = state.readingPlan

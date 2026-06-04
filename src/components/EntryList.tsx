@@ -11,7 +11,7 @@ export const EntryList = () => {
   const filteredEntries = useMemo(() => {
     const filtered = getFilteredEntries();
     return sortEntries(filtered);
-  }, [entries, filters, sortEntries, getFilteredEntries]);
+  }, [entries, filters, sortOption, sortEntries, getFilteredEntries]);
 
   if (filteredEntries.length === 0) {
     return (
