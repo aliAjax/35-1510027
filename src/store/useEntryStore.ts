@@ -1147,7 +1147,6 @@ export const useEntryStore = create<EntryStore>()(
           }
         };
 
-        const linkMap = new Map<string, LinkInfo[]>();
         const urlCount = new Map<string, number>();
 
         entries.forEach((entry) => {
