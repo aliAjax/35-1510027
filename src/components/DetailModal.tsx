@@ -1,18 +1,39 @@
-import { useState, useEffect } from 'react';
-import { X, Heart, ExternalLink, Edit2, Trash2, BookOpen, User, Calendar, Tag, FileText } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Heart, ExternalLink, Edit2, Trash2, BookOpen, User, Calendar, Tag, FileText, CalendarPlus, BookCheck, ChevronDown } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
+import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS, READ_STATUSES } from '../types';
+import type { ReadStatus } from '../types';
 
 export const DetailModal = () => {
-  const { isDetailOpen, detailEntry, closeDetail, toggleFavorite, openForm, deleteEntry, customTags } = useEntryStore();
+  const isDetailOpen = useEntryStore((s) => s.isDetailOpen);
+  const detailEntry = useEntryStore((s) => {
+    if (!s.detailEntryId) return null;
+    return s.entries.find((e) => e.id === s.detailEntryId) || null;
+  });
+  const closeDetail = useEntryStore((s) => s.closeDetail);
+  const toggleFavorite = useEntryStore((s) => s.toggleFavorite);
+  const updateReadStatus = useEntryStore((s) => s.updateReadStatus);
+  const openForm = useEntryStore((s) => s.openForm);
+  const deleteEntry = useEntryStore((s) => s.deleteEntry);
+  const customTags = useEntryStore((s) => s.customTags);
+  const addToPlan = useEntryStore((s) => s.addToPlan);
+  const removeFromPlan = useEntryStore((s) => s.removeFromPlan);
+  const readingPlan = useEntryStore((s) => s.readingPlan);
+
   const [isAnimating, setIsAnimating] = useState(false);
   const [heartAnimating, setHeartAnimating] = useState(false);
+  const [readStatusDropdown, setReadStatusDropdown] = useState(false);
 
   useEffect(() => {
     if (isDetailOpen) {
       setIsAnimating(true);
     }
   }, [isDetailOpen]);
+
+  const isInPlan = useMemo(() => {
+    if (!detailEntry) return false;
+    return readingPlan.some((item) => item.entryId === detailEntry.id);
+  }, [detailEntry, readingPlan]);
 
   if (!isDetailOpen || !detailEntry) return null;
 
@@ -29,6 +50,19 @@ export const DetailModal = () => {
     setHeartAnimating(true);
     toggleFavorite(detailEntry.id);
     setTimeout(() => setHeartAnimating(false), 600);
+  };
+
+  const handleReadStatusChange = (status: ReadStatus) => {
+    updateReadStatus(detailEntry.id, status);
+    setReadStatusDropdown(false);
+  };
+
+  const handleTogglePlan = () => {
+    if (isInPlan) {
+      removeFromPlan(detailEntry.id);
+    } else {
+      addToPlan(detailEntry.id);
+    }
   };
 
   const handleDelete = () => {
@@ -73,7 +107,76 @@ export const DetailModal = () => {
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+        <div className="px-6 pt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleFavorite}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-display font-semibold transition-all ${
+                heartAnimating ? 'animate-heartbeat' : ''
+              } ${
+                detailEntry.favorite
+                  ? 'bg-accent-peach text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Heart size={14} fill={detailEntry.favorite ? 'currentColor' : 'none'} />
+              {detailEntry.favorite ? '已收藏' : '收藏'}
+            </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setReadStatusDropdown(!readStatusDropdown)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-display font-semibold transition-all ${READ_STATUS_COLORS[detailEntry.readStatus]}`}
+              >
+                <BookCheck size={14} />
+                {detailEntry.readStatus}
+                <ChevronDown size={12} className={`transition-transform ${readStatusDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {readStatusDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setReadStatusDropdown(false)} />
+                  <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-100 py-1 min-w-[100px]">
+                    {READ_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => handleReadStatusChange(status)}
+                        className={`w-full px-3 py-1.5 text-left text-sm font-display transition-colors ${
+                          detailEntry.readStatus === status
+                            ? 'bg-primary-50 text-primary-600 font-semibold'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={handleTogglePlan}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-display font-semibold transition-all ${
+                isInPlan
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600'
+              }`}
+            >
+              <CalendarPlus size={14} />
+              {isInPlan ? '已加入计划' : '今日计划'}
+            </button>
+
+            <button
+              onClick={handleEdit}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-display font-semibold bg-primary-100 text-primary-600 hover:bg-primary-200 transition-all"
+            >
+              <Edit2 size={14} />
+              编辑
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-160px)]">
           <div className="flex flex-wrap gap-2 mb-5">
             <span className={`btn-tag ${TYPE_COLORS[detailEntry.type]}`}>
               {detailEntry.type}
@@ -175,19 +278,6 @@ export const DetailModal = () => {
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={handleFavorite}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-display font-semibold transition-all ${
-                heartAnimating ? 'animate-heartbeat' : ''
-              } ${
-                detailEntry.favorite
-                  ? 'bg-accent-peach text-white shadow-lg shadow-accent-peach/30'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Heart size={18} fill={detailEntry.favorite ? 'currentColor' : 'none'} />
-              {detailEntry.favorite ? '已收藏' : '收藏'}
-            </button>
             {detailEntry.link && (
               <a
                 href={detailEntry.link}
@@ -200,13 +290,6 @@ export const DetailModal = () => {
                 打开链接
               </a>
             )}
-            <button
-              onClick={handleEdit}
-              className="p-2.5 rounded-xl bg-primary-100 text-primary-600 hover:bg-primary-200 transition-all"
-              title="编辑"
-            >
-              <Edit2 size={18} />
-            </button>
             <button
               onClick={handleDelete}
               className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-all"

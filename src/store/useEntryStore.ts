@@ -41,7 +41,7 @@ export const useEntryStore = create<EntryStore>()(
       editingEntry: null,
       isFormOpen: false,
       isDetailOpen: false,
-      detailEntry: null,
+      detailEntryId: null as string | null,
       isBatchImportOpen: false,
       isTagManagerOpen: false,
       isReadingPlanOpen: false,
@@ -236,7 +236,7 @@ export const useEntryStore = create<EntryStore>()(
 
       openDetail: (entry) => {
         set({
-          detailEntry: entry,
+          detailEntryId: entry.id,
           isDetailOpen: true,
           isFormOpen: false,
         });
@@ -244,9 +244,25 @@ export const useEntryStore = create<EntryStore>()(
 
       closeDetail: () => {
         set({
-          detailEntry: null,
+          detailEntryId: null,
           isDetailOpen: false,
         });
+      },
+
+      detailEntry: () => {
+        const { detailEntryId, entries } = get();
+        if (!detailEntryId) return null;
+        return entries.find((e) => e.id === detailEntryId) || null;
+      },
+
+      updateReadStatus: (id: string, readStatus: ReadStatus) => {
+        set((state) => ({
+          entries: state.entries.map((entry) =>
+            entry.id === id
+              ? { ...entry, readStatus, updatedAt: Date.now() }
+              : entry
+          ),
+        }));
       },
 
       openBatchImport: () => {

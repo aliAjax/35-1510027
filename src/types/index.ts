@@ -57,7 +57,8 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   editingEntry: Entry | null;
   isFormOpen: boolean;
   isDetailOpen: boolean;
-  detailEntry: Entry | null;
+  detailEntryId: string | null;
+  detailEntry: () => Entry | null;
   isBatchImportOpen: boolean;
   isTagManagerOpen: boolean;
   isReadingPlanOpen: boolean;
@@ -70,6 +71,7 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   updateEntry: (id: string, updates: Partial<Entry>) => void;
   deleteEntry: (id: string) => void;
   toggleFavorite: (id: string) => void;
+  updateReadStatus: (id: string, readStatus: ReadStatus) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;
   setSortOption: (option: SortOption) => void;
