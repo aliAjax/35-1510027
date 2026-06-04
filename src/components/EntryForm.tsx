@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Tags } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
@@ -43,12 +43,13 @@ const defaultFormData: FormData = {
 
 export const EntryForm = () => {
   const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager } = useEntryStore();
+  const entries = useEntryStore((s) => s.entries);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const workNameSuggestions = useEntryStore((s) => [...new Set(s.entries.map((e) => e.workName).filter(Boolean))].sort());
-  const cpNameSuggestions = useEntryStore((s) => [...new Set(s.entries.map((e) => e.cpName).filter(Boolean))].sort());
-  const authorSuggestions = useEntryStore((s) => [...new Set(s.entries.map((e) => e.author).filter(Boolean))].sort());
+  const workNameSuggestions = useMemo(() => [...new Set(entries.map((e) => e.workName).filter(Boolean))].sort(), [entries]);
+  const cpNameSuggestions = useMemo(() => [...new Set(entries.map((e) => e.cpName).filter(Boolean))].sort(), [entries]);
+  const authorSuggestions = useMemo(() => [...new Set(entries.map((e) => e.author).filter(Boolean))].sort(), [entries]);
 
   useEffect(() => {
     if (isFormOpen) {
