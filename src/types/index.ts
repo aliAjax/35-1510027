@@ -119,6 +119,7 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   batchImportEntries: (entries: ParsedBatchEntry[]) => void;
   parseBatchText: (text: string) => BatchImportResult;
   parseBatchCSV: (csvText: string) => BatchImportResult;
+  checkForDuplicates: (entryData: { workName: string; cpName: string; link: string; author: string }) => DuplicateMatch[];
   clearAllData: () => void;
   openKanban: () => void;
   closeKanban: () => void;
@@ -249,6 +250,14 @@ export interface BatchImportRow {
   favorite: string;
 }
 
+export type ImportStrategy = 'skip' | 'overwrite' | 'merge';
+
+export interface DuplicateMatch {
+  entry: Entry;
+  matchReasons: string[];
+  matchScore: number;
+}
+
 export interface ParsedBatchEntry {
   rowNumber: number;
   workName: string;
@@ -265,6 +274,8 @@ export interface ParsedBatchEntry {
   isValid: boolean;
   errors: string[];
   warnings: string[];
+  duplicates: DuplicateMatch[];
+  importStrategy: ImportStrategy;
 }
 
 export type PlanItemStatus = 'planned' | 'done' | 'skipped';

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption, ImportStrategy, DuplicateMatch } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -932,26 +932,180 @@ export const useEntryStore = create<EntryStore>()(
       batchImportEntries: (parsedEntries: ParsedBatchEntry[]) => {
         const validEntries = parsedEntries.filter((e) => e.isValid);
         const now = Date.now();
-        const newEntries: Entry[] = validEntries.map((entry, index) => ({
-          id: generateId() + index.toString(),
-          workName: entry.workName,
-          cpName: entry.cpName,
-          type: entry.type,
-          link: entry.link,
-          author: entry.author,
-          status: entry.status,
-          tags: entry.tags,
-          customTags: entry.customTags,
-          readStatus: entry.readStatus,
-          notes: entry.notes,
-          favorite: entry.favorite,
-          createdAt: now - index,
-          updatedAt: now,
-        }));
-        set((state) => ({
-          entries: [...newEntries, ...state.entries],
-          isBatchImportOpen: false,
-        }));
+
+        const toAdd: Entry[] = [];
+        const toUpdate: { id: string; updates: Partial<Entry> }[] = [];
+        const skippedIds = new Set<string>();
+
+        validEntries.forEach((entry, entryIndex) => {
+          if (entry.importStrategy === 'skip' && entry.duplicates.length > 0) {
+            return;
+          }
+
+          const primaryDuplicate = entry.duplicates[0];
+
+          if (entry.importStrategy === 'overwrite' && primaryDuplicate) {
+            toUpdate.push({
+              id: primaryDuplicate.entry.id,
+              updates: {
+                workName: entry.workName,
+                cpName: entry.cpName,
+                type: entry.type,
+                link: entry.link,
+                author: entry.author,
+                status: entry.status,
+                tags: entry.tags,
+                customTags: entry.customTags,
+                readStatus: entry.readStatus,
+                notes: entry.notes,
+                favorite: entry.favorite,
+                updatedAt: now,
+              },
+            });
+            skippedIds.add(primaryDuplicate.entry.id);
+          } else if (entry.importStrategy === 'merge' && primaryDuplicate) {
+            const existing = primaryDuplicate.entry;
+            const mergedTags = Array.from(new Set([...existing.tags, ...entry.tags]));
+            const mergedCustomTags = Array.from(new Set([...existing.customTags, ...entry.customTags]));
+            const mergedNotes = [existing.notes, entry.notes].filter(Boolean).join('\n\n---\n\n');
+            const mergedFavorite = existing.favorite || entry.favorite;
+
+            toUpdate.push({
+              id: existing.id,
+              updates: {
+                tags: mergedTags,
+                customTags: mergedCustomTags,
+                notes: mergedNotes,
+                favorite: mergedFavorite,
+                updatedAt: now,
+              },
+            });
+            skippedIds.add(existing.id);
+          } else {
+            toAdd.push({
+              id: generateId() + entryIndex.toString(),
+              workName: entry.workName,
+              cpName: entry.cpName,
+              type: entry.type,
+              link: entry.link,
+              author: entry.author,
+              status: entry.status,
+              tags: entry.tags,
+              customTags: entry.customTags,
+              readStatus: entry.readStatus,
+              notes: entry.notes,
+              favorite: entry.favorite,
+              createdAt: now - entryIndex,
+              updatedAt: now,
+            });
+          }
+        });
+
+        set((state) => {
+          let updatedEntries = [...state.entries];
+
+          toUpdate.forEach(({ id, updates }) => {
+            updatedEntries = updatedEntries.map((e) =>
+              e.id === id ? { ...e, ...updates } : e
+            );
+          });
+
+          const filteredExisting = updatedEntries.filter((e) => !skippedIds.has(e.id));
+          const finalEntries = [...toAdd, ...filteredExisting];
+
+          return {
+            entries: finalEntries,
+            isBatchImportOpen: false,
+          };
+        });
+      },
+
+      checkForDuplicates: (entryData: { workName: string; cpName: string; link: string; author: string }): DuplicateMatch[] => {
+        const { entries } = get();
+        if (entries.length === 0) return [];
+
+        const normalize = (str: string): string => {
+          return str
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, '')
+            .replace(/[^\w\u4e00-\u9fa5]/g, '');
+        };
+
+        const normalizeUrl = (url: string): string => {
+          try {
+            const u = new URL(url);
+            return u.hostname + u.pathname.replace(/\/$/, '');
+          } catch {
+            return normalize(url);
+          }
+        };
+
+        const isLooseMatch = (a: string, b: string): boolean => {
+          if (!a || !b) return false;
+          const normA = normalize(a);
+          const normB = normalize(b);
+          if (!normA || !normB) return false;
+          if (normA === normB) return true;
+          const shorter = normA.length < normB.length ? normA : normB;
+          const longer = normA.length < normB.length ? normB : normA;
+          if (shorter.length < 2) return false;
+          if (!longer.includes(shorter)) return false;
+          const ratio = shorter.length / longer.length;
+          return ratio >= 0.5;
+        };
+
+        const isUrlMatch = (a: string, b: string): boolean => {
+          if (!a || !b) return false;
+          const urlA = normalizeUrl(a);
+          const urlB = normalizeUrl(b);
+          if (!urlA || !urlB) return false;
+          if (urlA === urlB) return true;
+          const shorter = urlA.length < urlB.length ? urlA : urlB;
+          const longer = urlA.length < urlB.length ? urlB : urlA;
+          if (shorter.length < 3) return false;
+          if (!longer.includes(shorter)) return false;
+          const ratio = shorter.length / longer.length;
+          return ratio >= 0.6;
+        };
+
+        const matches: DuplicateMatch[] = [];
+
+        for (const existing of entries) {
+          const matchReasons: string[] = [];
+          let score = 0;
+          let hasLinkMatch = false;
+
+          if (isLooseMatch(entryData.workName, existing.workName)) {
+            matchReasons.push('作品名匹配');
+            score += 2;
+          }
+          if (isLooseMatch(entryData.cpName, existing.cpName)) {
+            matchReasons.push('CP名匹配');
+            score += 2;
+          }
+          if (isLooseMatch(entryData.author, existing.author)) {
+            matchReasons.push('作者匹配');
+            score += 2;
+          }
+          if (isUrlMatch(entryData.link, existing.link)) {
+            matchReasons.push('链接匹配');
+            score += 3;
+            hasLinkMatch = true;
+          }
+
+          const isDuplicate = hasLinkMatch || score >= 4;
+
+          if (isDuplicate) {
+            matches.push({
+              entry: existing,
+              matchReasons,
+              matchScore: score,
+            });
+          }
+        }
+
+        return matches.sort((a, b) => b.matchScore - a.matchScore);
       },
 
       parseBatchText: (text: string): BatchImportResult => {
@@ -959,7 +1113,7 @@ export const useEntryStore = create<EntryStore>()(
         const validStatuses = new Set<string>(COMPLETION_STATUSES);
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validTags = new Set<string>(FLAVOR_TAGS);
-        const { customTags } = get();
+        const { customTags, checkForDuplicates } = get();
         const customTagMap = new Map(customTags.map((t) => [t.name.toLowerCase(), t.id]));
 
         const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
@@ -1039,6 +1193,9 @@ export const useEntryStore = create<EntryStore>()(
 
           const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
 
+          const isValid = errors.length === 0;
+          const duplicates = isValid ? checkForDuplicates({ workName, cpName, link, author }) : [];
+
           return {
             rowNumber,
             workName,
@@ -1052,9 +1209,11 @@ export const useEntryStore = create<EntryStore>()(
             readStatus,
             notes,
             favorite,
-            isValid: errors.length === 0,
+            isValid,
             errors,
             warnings,
+            duplicates,
+            importStrategy: 'merge' as ImportStrategy,
           };
         };
 
@@ -1128,7 +1287,7 @@ export const useEntryStore = create<EntryStore>()(
         const validStatuses = new Set<string>(COMPLETION_STATUSES);
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validTags = new Set<string>(FLAVOR_TAGS);
-        const { customTags } = get();
+        const { customTags, checkForDuplicates } = get();
         const customTagMap = new Map(customTags.map((t) => [t.name.toLowerCase(), t.id]));
 
         const normalizeValue = (val: string): string => val.trim().replace(/^["']|["']$/g, '');
@@ -1208,6 +1367,9 @@ export const useEntryStore = create<EntryStore>()(
 
           const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
 
+          const isValid = errors.length === 0;
+          const duplicates = isValid ? checkForDuplicates({ workName, cpName, link, author }) : [];
+
           return {
             rowNumber,
             workName,
@@ -1221,9 +1383,11 @@ export const useEntryStore = create<EntryStore>()(
             readStatus,
             notes,
             favorite,
-            isValid: errors.length === 0,
+            isValid,
             errors,
             warnings,
+            duplicates,
+            importStrategy: 'merge' as ImportStrategy,
           };
         };
 
