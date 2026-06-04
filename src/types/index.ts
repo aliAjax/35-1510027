@@ -330,6 +330,13 @@ export interface CpDistributionItem {
   percentage: number;
 }
 
+export interface WorkDistributionItem {
+  workName: string;
+  cpName: string;
+  type: EntryType;
+  count: number;
+}
+
 export interface TypeDistributionItem {
   type: EntryType;
   count: number;
@@ -351,6 +358,7 @@ export interface TrendDataItem {
 export interface DataAnalysisResult {
   totalEntries: number;
   cpDistribution: CpDistributionItem[];
+  workDistribution: WorkDistributionItem[];
   typeDistribution: TypeDistributionItem[];
   readStatusDistribution: ReadStatusDistributionItem[];
   favoriteCount: number;

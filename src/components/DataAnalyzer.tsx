@@ -11,6 +11,7 @@ import {
   Calendar,
   Sparkles,
   ArrowRight,
+  BookMarked,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import type { EntryType, ReadStatus, TrendDataItem } from '../types';
@@ -39,7 +40,7 @@ export const DataAnalyzer = () => {
   } = useEntryStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'cp' | 'type' | 'status' | 'trend'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'work' | 'cp' | 'type' | 'status' | 'trend'>('overview');
 
   useEffect(() => {
     if (isDataAnalysisOpen) {
@@ -59,6 +60,12 @@ export const DataAnalyzer = () => {
   const handleCpClick = (cpName: string) => {
     resetFilters();
     setFilters({ cpName });
+    closeModal();
+  };
+
+  const handleWorkClick = (workName: string) => {
+    resetFilters();
+    setFilters({ searchKeyword: workName });
     closeModal();
   };
 
@@ -435,6 +442,87 @@ export const DataAnalyzer = () => {
           (index) => handleCpClick(analysisData.cpDistribution[index].cpName)
         )}
       </div>
+
+      <div className="glass-panel p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-gray-800 flex items-center gap-2">
+            <BookMarked size={18} className="text-blue-500" />
+            作品分布
+          </h3>
+          <button
+            onClick={() => setActiveTab('work')}
+            className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1 font-display"
+          >
+            查看详情 <ArrowRight size={14} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {analysisData.workDistribution.slice(0, 5).map((item, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-primary-50/50 cursor-pointer transition-colors group"
+              onClick={() => handleWorkClick(item.workName)}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-display font-bold text-xs flex-shrink-0"
+                style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+              >
+                {index + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-medium text-gray-800 group-hover:text-primary-600 transition-colors truncate text-sm">
+                  {item.workName}
+                </div>
+                <div className="text-xs text-gray-400 flex items-center gap-2">
+                  <span>{item.cpName}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${TYPE_COLORS[item.type]}`}>{item.type}</span>
+                </div>
+              </div>
+              <div className="text-sm font-display font-semibold text-gray-600 group-hover:text-primary-600">
+                {item.count} 条
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const WorkTab = () => (
+    <div className="glass-panel p-5">
+      <h3 className="font-display font-bold text-gray-800 flex items-center gap-2 mb-6">
+        <BookMarked size={20} className="text-blue-500" />
+        作品分布详情
+      </h3>
+      <p className="text-sm text-gray-500 mb-4 font-display">按作品名汇总，显示同名的多条记录（含不同CP或来源）。点击可搜索该作品名。</p>
+      <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+        {analysisData.workDistribution.map((item, index) => (
+          <div
+            key={index}
+            className="flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
+            onClick={() => handleWorkClick(item.workName)}
+          >
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-display font-bold text-sm flex-shrink-0"
+              style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+            >
+              {index + 1}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-semibold text-gray-800 group-hover:text-primary-600 transition-colors truncate">
+                {item.workName}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="text-primary-500">{item.cpName}</span>
+                <span className={`px-1.5 py-0.5 rounded ${TYPE_COLORS[item.type]}`}>{item.type}</span>
+              </div>
+            </div>
+            <div className="text-sm font-display font-semibold text-gray-600 group-hover:text-primary-600">
+              {item.count} 条
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -617,6 +705,7 @@ export const DataAnalyzer = () => {
               <div className="flex gap-1 overflow-x-auto">
                 {[
                   { key: 'overview', label: '概览', icon: Sparkles },
+                  { key: 'work', label: '作品分布', icon: BookMarked },
                   { key: 'cp', label: 'CP分布', icon: Users },
                   { key: 'type', label: '类型分布', icon: FileText },
                   { key: 'status', label: '阅读状态', icon: BookOpen },
@@ -640,6 +729,7 @@ export const DataAnalyzer = () => {
 
             <div className="p-6 overflow-y-auto flex-1">
               {activeTab === 'overview' && <OverviewTab />}
+              {activeTab === 'work' && <WorkTab />}
               {activeTab === 'cp' && <CpTab />}
               {activeTab === 'type' && <TypeTab />}
               {activeTab === 'status' && <StatusTab />}
