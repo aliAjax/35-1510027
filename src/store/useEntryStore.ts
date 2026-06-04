@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -39,6 +39,7 @@ export const useEntryStore = create<EntryStore>()(
       isKanbanOpen: false,
       kanbanViewMode: 'cp' as KanbanViewMode,
       expandedKanbanGroups: {},
+      isLinkManagerOpen: false,
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -1104,6 +1105,121 @@ export const useEntryStore = create<EntryStore>()(
         const collapsed: Record<string, boolean> = {};
         groupKeys.forEach((key) => { collapsed[key] = false; });
         set({ expandedKanbanGroups: collapsed });
+      },
+
+      openLinkManager: () => {
+        set({
+          isLinkManagerOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+          isTagManagerOpen: false,
+          isReadingPlanOpen: false,
+          isDuplicateCheckerOpen: false,
+          isKanbanOpen: false,
+        });
+      },
+
+      closeLinkManager: () => {
+        set({ isLinkManagerOpen: false });
+      },
+
+      analyzeLinks: (): LinkAnalysisResult => {
+        const { entries } = get();
+        
+        const extractDomain = (url: string): string => {
+          if (!url) return '无链接';
+          try {
+            const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+            return urlObj.hostname;
+          } catch {
+            return '格式异常';
+          }
+        };
+
+        const isValidUrl = (url: string): boolean => {
+          if (!url) return false;
+          try {
+            new URL(url.startsWith('http') ? url : `https://${url}`);
+            return true;
+          } catch {
+            return false;
+          }
+        };
+
+        const linkMap = new Map<string, LinkInfo[]>();
+        const urlCount = new Map<string, number>();
+
+        entries.forEach((entry) => {
+          if (entry.link) {
+            const normalizedUrl = entry.link.trim().toLowerCase();
+            urlCount.set(normalizedUrl, (urlCount.get(normalizedUrl) || 0) + 1);
+          }
+        });
+
+        const allLinks: LinkInfo[] = entries.map((entry) => {
+          const issues: LinkIssue[] = [];
+          const link = entry.link || '';
+
+          if (!link.trim()) {
+            issues.push({ type: 'empty', message: '空链接' });
+          } else if (!isValidUrl(link)) {
+            issues.push({ type: 'invalid', message: '链接格式异常' });
+          }
+
+          const normalizedUrl = link.trim().toLowerCase();
+          if (normalizedUrl && (urlCount.get(normalizedUrl) || 0) > 1) {
+            issues.push({ type: 'duplicate', message: '重复链接' });
+          }
+
+          return {
+            entryId: entry.id,
+            workName: entry.workName,
+            cpName: entry.cpName,
+            link: entry.link,
+            domain: extractDomain(entry.link),
+            notes: entry.notes,
+            issues,
+            hasIssue: issues.length > 0,
+          };
+        });
+
+        const domainGroupsMap = new Map<string, LinkInfo[]>();
+        allLinks.forEach((linkInfo) => {
+          const domain = linkInfo.domain;
+          if (!domainGroupsMap.has(domain)) {
+            domainGroupsMap.set(domain, []);
+          }
+          domainGroupsMap.get(domain)!.push(linkInfo);
+        });
+
+        const domainGroups: LinkDomainGroup[] = Array.from(domainGroupsMap.entries())
+          .map(([domain, links]) => ({
+            domain,
+            links,
+            count: links.length,
+            issueCount: links.filter((l) => l.hasIssue).length,
+          }))
+          .sort((a, b) => b.count - a.count);
+
+        return {
+          totalLinks: allLinks.filter((l) => l.link).length,
+          emptyLinks: allLinks.filter((l) => !l.link.trim()).length,
+          duplicateLinks: allLinks.filter((l) => l.issues.some((i) => i.type === 'duplicate')).length,
+          invalidLinks: allLinks.filter((l) => l.issues.some((i) => i.type === 'invalid')).length,
+          domainGroups,
+          allLinks,
+        };
+      },
+
+      batchUpdateNotes: (entryIds: string[], notes: string) => {
+        set((state) => ({
+          entries: state.entries.map((entry) =>
+            entryIds.includes(entry.id)
+              ? { ...entry, notes, updatedAt: Date.now() }
+              : entry
+          ),
+        }));
       },
 
       openDuplicateChecker: () => {

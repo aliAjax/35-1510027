@@ -46,7 +46,7 @@ export interface FilterFavorite {
   updatedAt: number;
 }
 
-export interface EntryStore extends DuplicateCheckStore {
+export interface EntryStore extends DuplicateCheckStore, LinkManagerStore {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
@@ -286,4 +286,46 @@ export interface DuplicateCheckStore {
   ignoreDuplicateGroup: (groupId: string) => void;
   keepEntry: (groupId: string, entryId: string) => void;
   mergeEntries: (groupId: string, keepEntryId: string) => void;
+}
+
+export type LinkIssueType = 'empty' | 'duplicate' | 'invalid' | 'warning';
+
+export interface LinkIssue {
+  type: LinkIssueType;
+  message: string;
+}
+
+export interface LinkInfo {
+  entryId: string;
+  workName: string;
+  cpName: string;
+  link: string;
+  domain: string;
+  notes: string;
+  issues: LinkIssue[];
+  hasIssue: boolean;
+}
+
+export interface LinkDomainGroup {
+  domain: string;
+  links: LinkInfo[];
+  count: number;
+  issueCount: number;
+}
+
+export interface LinkAnalysisResult {
+  totalLinks: number;
+  emptyLinks: number;
+  duplicateLinks: number;
+  invalidLinks: number;
+  domainGroups: LinkDomainGroup[];
+  allLinks: LinkInfo[];
+}
+
+export interface LinkManagerStore {
+  isLinkManagerOpen: boolean;
+  openLinkManager: () => void;
+  closeLinkManager: () => void;
+  analyzeLinks: () => LinkAnalysisResult;
+  batchUpdateNotes: (entryIds: string[], notes: string) => void;
 }
