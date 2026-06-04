@@ -12,9 +12,11 @@ import {
   Sparkles,
   ArrowRight,
   BookMarked,
+  BookmarkPlus,
+  Check,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import type { EntryType, ReadStatus, TrendDataItem } from '../types';
+import type { EntryType, ReadStatus, TrendDataItem, FilterState } from '../types';
 import { TYPE_COLORS, READ_STATUS_COLORS } from '../types';
 
 const CHART_COLORS = [
@@ -37,10 +39,13 @@ export const DataAnalyzer = () => {
     analyzeData,
     setFilters,
     resetFilters,
+    addFilterFavorite,
   } = useEntryStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'work' | 'cp' | 'type' | 'status' | 'trend'>('overview');
+  const [savingFilter, setSavingFilter] = useState<{ filters: FilterState; defaultName: string } | null>(null);
+  const [newFilterName, setNewFilterName] = useState('');
 
   useEffect(() => {
     if (isDataAnalysisOpen) {
@@ -97,6 +102,26 @@ export const DataAnalyzer = () => {
     resetFilters();
     setFilters({ dateFrom, dateTo });
     closeModal();
+  };
+
+  const handleStartSaveFilter = (filters: FilterState, defaultName: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setSavingFilter({ filters, defaultName });
+    setNewFilterName(defaultName);
+  };
+
+  const handleCancelSaveFilter = () => {
+    setSavingFilter(null);
+    setNewFilterName('');
+  };
+
+  const handleConfirmSaveFilter = () => {
+    if (!savingFilter || !newFilterName.trim()) return;
+    addFilterFavorite(newFilterName.trim(), savingFilter.filters);
+    setSavingFilter(null);
+    setNewFilterName('');
   };
 
   const renderPieChart = (
@@ -494,12 +519,12 @@ export const DataAnalyzer = () => {
         <BookMarked size={20} className="text-blue-500" />
         作品分布详情
       </h3>
-      <p className="text-sm text-gray-500 mb-4 font-display">按作品名汇总，显示同名的多条记录（含不同CP或来源）。点击可搜索该作品名。</p>
+      <p className="text-sm text-gray-500 mb-4 font-display">按作品名汇总。点击条目可搜索该作品，点击书签图标可保存为筛选视图。</p>
       <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
         {analysisData.workDistribution.map((item, index) => (
           <div
             key={index}
-            className="flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
+            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
             onClick={() => handleWorkClick(item.workName)}
           >
             <div
@@ -520,6 +545,17 @@ export const DataAnalyzer = () => {
             <div className="text-sm font-display font-semibold text-gray-600 group-hover:text-primary-600">
               {item.count} 条
             </div>
+            <button
+              onClick={(e) => handleStartSaveFilter(
+                { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: item.workName, dateFrom: null, dateTo: null },
+                `作品：${item.workName}`,
+                e
+              )}
+              className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              title="保存为筛选视图"
+            >
+              <BookmarkPlus size={16} />
+            </button>
           </div>
         ))}
       </div>
@@ -532,11 +568,12 @@ export const DataAnalyzer = () => {
         <Users size={20} className="text-violet-500" />
         CP 分布详情
       </h3>
+      <p className="text-sm text-gray-500 mb-4 font-display">点击条目可筛选该CP，点击书签图标可保存为筛选视图。</p>
       <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
         {analysisData.cpDistribution.map((item, index) => (
           <div
             key={index}
-            className="flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
+            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
             onClick={() => handleCpClick(item.cpName)}
           >
             <div
@@ -562,6 +599,17 @@ export const DataAnalyzer = () => {
                 }}
               />
             </div>
+            <button
+              onClick={(e) => handleStartSaveFilter(
+                { cpName: item.cpName, type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                `CP：${item.cpName}`,
+                e
+              )}
+              className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              title="保存为筛选视图"
+            >
+              <BookmarkPlus size={16} />
+            </button>
           </div>
         ))}
       </div>
@@ -574,13 +622,25 @@ export const DataAnalyzer = () => {
         <FileText size={20} className="text-amber-500" />
         类型分布详情
       </h3>
+      <p className="text-sm text-gray-500 mb-4 font-display">点击卡片可筛选该类型，点击书签图标可保存为筛选视图。</p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {analysisData.typeDistribution.map((item, index) => (
           <div
             key={index}
-            className="p-4 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-all group"
+            className="p-4 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-all group relative"
             onClick={() => handleTypeClick(item.type)}
           >
+            <button
+              onClick={(e) => handleStartSaveFilter(
+                { cpName: '', type: item.type, status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                `类型：${item.type}`,
+                e
+              )}
+              className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              title="保存为筛选视图"
+            >
+              <BookmarkPlus size={14} />
+            </button>
             <div className={`inline-block px-3 py-1 rounded-full text-sm font-display font-medium mb-2 ${TYPE_COLORS[item.type]}`}>
               {item.type}
             </div>
@@ -609,13 +669,25 @@ export const DataAnalyzer = () => {
         <BookOpen size={20} className="text-emerald-500" />
         阅读状态详情
       </h3>
+      <p className="text-sm text-gray-500 mb-4 font-display">点击卡片可筛选该阅读状态，点击书签图标可保存为筛选视图。</p>
       <div className="grid grid-cols-2 gap-4">
         {analysisData.readStatusDistribution.map((item, index) => (
           <div
             key={index}
-            className="p-4 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-all group"
+            className="p-4 rounded-xl bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-all group relative"
             onClick={() => handleReadStatusClick(item.status)}
           >
+            <button
+              onClick={(e) => handleStartSaveFilter(
+                { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: item.status, favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                `阅读状态：${item.status}`,
+                e
+              )}
+              className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+              title="保存为筛选视图"
+            >
+              <BookmarkPlus size={14} />
+            </button>
             <div className={`inline-block px-3 py-1 rounded-full text-sm font-display font-medium mb-2 ${READ_STATUS_COLORS[item.status]}`}>
               {item.status}
             </div>
@@ -644,20 +716,40 @@ export const DataAnalyzer = () => {
         <Calendar size={20} className="text-blue-500" />
         近14天新增趋势
       </h3>
+      <p className="text-sm text-gray-500 mb-4 font-display">点击日期可查看当天记录，点击书签图标可保存为日期筛选视图。</p>
       <div className="h-64 mb-4">
         {renderTrendChart(analysisData.trendData, handleDateClick)}
       </div>
       <div className="grid grid-cols-7 gap-2">
-        {analysisData.trendData.map((item, index) => (
-          <div
-            key={index}
-            className="text-center p-2 rounded-lg bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group"
-            onClick={() => handleDateClick(item)}
-          >
-            <div className="text-xs text-gray-500 mb-1 font-display group-hover:text-primary-500 transition-colors">{item.date}</div>
-            <div className="text-lg font-display font-bold text-primary-600 group-hover:text-primary-700 transition-colors">{item.count}</div>
-          </div>
-        ))}
+        {analysisData.trendData.map((item, index) => {
+          const date = new Date(item.timestamp);
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const day = date.getDate();
+          const dateFrom = new Date(year, month, day, 0, 0, 0).getTime();
+          const dateTo = new Date(year, month, day, 23, 59, 59).getTime();
+          return (
+            <div
+              key={index}
+              className="text-center p-2 rounded-lg bg-gray-50/50 hover:bg-primary-50/50 cursor-pointer transition-colors group relative"
+              onClick={() => handleDateClick(item)}
+            >
+              <button
+                onClick={(e) => handleStartSaveFilter(
+                  { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom, dateTo },
+                  `日期：${item.date}`,
+                  e
+                )}
+                className="absolute -top-1 -right-1 p-1 text-gray-400 hover:text-primary-500 hover:bg-primary-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                title="保存为筛选视图"
+              >
+                <BookmarkPlus size={12} />
+              </button>
+              <div className="text-xs text-gray-500 mb-1 font-display group-hover:text-primary-500 transition-colors">{item.date}</div>
+              <div className="text-lg font-display font-bold text-primary-600 group-hover:text-primary-700 transition-colors">{item.count}</div>
+            </div>
+          );
+        })}
       </div>
       <div className="mt-4 p-4 bg-gradient-to-r from-primary-50 to-purple-50 rounded-xl">
         <div className="flex items-center gap-2 text-sm text-gray-600 font-display">
@@ -679,6 +771,51 @@ export const DataAnalyzer = () => {
         }`}
         onClick={closeModal}
       />
+      {savingFilter && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={handleCancelSaveFilter}
+          />
+          <div className="relative glass-panel w-full max-w-md p-6 animate-scale-in">
+            <h3 className="text-lg font-display font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <BookmarkPlus size={20} className="text-primary-500" />
+              生成筛选视图
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              为这个筛选条件起个名字，保存后可以在筛选收藏区域快速切换。
+            </p>
+            <input
+              type="text"
+              value={newFilterName}
+              onChange={(e) => setNewFilterName(e.target.value)}
+              placeholder="输入视图名称，如：散枫已完结甜文"
+              className="input-field w-full mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmSaveFilter();
+                if (e.key === 'Escape') handleCancelSaveFilter();
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={handleCancelSaveFilter}
+                className="px-4 py-2 text-sm font-display font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmSaveFilter}
+                disabled={!newFilterName.trim()}
+                className="px-4 py-2 text-sm font-display font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <Check size={16} />
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         className={`relative glass-panel w-full max-w-4xl max-h-[90vh] overflow-hidden transition-all duration-300 flex flex-col ${
           isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
