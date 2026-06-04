@@ -49,6 +49,9 @@ export interface EntryStore extends DuplicateCheckStore {
   isTagManagerOpen: boolean;
   isReadingPlanOpen: boolean;
   readingPlan: ReadingPlanItem[];
+  isKanbanOpen: boolean;
+  kanbanViewMode: KanbanViewMode;
+  expandedKanbanGroups: Record<string, boolean>;
   addEntry: (entry: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateEntry: (id: string, updates: Partial<Entry>) => void;
   deleteEntry: (id: string) => void;
@@ -92,6 +95,12 @@ export interface EntryStore extends DuplicateCheckStore {
   parseBatchText: (text: string) => BatchImportResult;
   parseBatchCSV: (csvText: string) => BatchImportResult;
   clearAllData: () => void;
+  openKanban: () => void;
+  closeKanban: () => void;
+  setKanbanViewMode: (mode: KanbanViewMode) => void;
+  toggleKanbanGroup: (groupKey: string) => void;
+  expandAllKanbanGroups: (groupKeys: string[]) => void;
+  collapseAllKanbanGroups: () => void;
 }
 
 export const ENTRY_TYPES: EntryType[] = ['同人文', '同人漫', '视频', '音频', '图', '其他'];
@@ -243,6 +252,8 @@ export interface BatchImportResult {
   entries: ParsedBatchEntry[];
   hasErrors: boolean;
 }
+
+export type KanbanViewMode = 'cp' | 'work' | 'readStatus' | 'type';
 
 export interface DuplicateGroup {
   id: string;

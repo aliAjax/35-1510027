@@ -10,6 +10,7 @@ import { BatchImport } from '../components/BatchImport';
 import { TagManager } from '../components/TagManager';
 import { ReadingPlan } from '../components/ReadingPlan';
 import { DuplicateChecker } from '../components/DuplicateChecker';
+import { KanbanView } from '../components/KanbanView';
 import { loadSampleDataIfEmpty } from '../utils/sampleData';
 
 export default function Home() {
@@ -75,6 +76,7 @@ export default function Home() {
       <TagManager />
       <ReadingPlan />
       <DuplicateChecker />
+      <KanbanView />
     </div>
   );
 }

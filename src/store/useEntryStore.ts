@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
 const generateId = (): string => {
@@ -33,6 +33,9 @@ export const useEntryStore = create<EntryStore>()(
       readingPlan: [],
       isDuplicateCheckerOpen: false,
       duplicateGroups: [],
+      isKanbanOpen: false,
+      kanbanViewMode: 'cp' as KanbanViewMode,
+      expandedKanbanGroups: {},
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -980,7 +983,47 @@ export const useEntryStore = create<EntryStore>()(
           filters: { ...defaultFilters },
           readingPlan: [],
           duplicateGroups: [],
+          expandedKanbanGroups: {},
         });
+      },
+
+      openKanban: () => {
+        set({
+          isKanbanOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+          isTagManagerOpen: false,
+          isReadingPlanOpen: false,
+          isDuplicateCheckerOpen: false,
+        });
+      },
+
+      closeKanban: () => {
+        set({ isKanbanOpen: false });
+      },
+
+      setKanbanViewMode: (mode: KanbanViewMode) => {
+        set({ kanbanViewMode: mode, expandedKanbanGroups: {} });
+      },
+
+      toggleKanbanGroup: (groupKey: string) => {
+        set((state) => ({
+          expandedKanbanGroups: {
+            ...state.expandedKanbanGroups,
+            [groupKey]: !state.expandedKanbanGroups[groupKey],
+          },
+        }));
+      },
+
+      expandAllKanbanGroups: (groupKeys: string[]) => {
+        const expanded: Record<string, boolean> = {};
+        groupKeys.forEach((key) => { expanded[key] = true; });
+        set({ expandedKanbanGroups: expanded });
+      },
+
+      collapseAllKanbanGroups: () => {
+        set({ expandedKanbanGroups: {} });
       },
 
       openDuplicateChecker: () => {
@@ -1239,6 +1282,8 @@ export const useEntryStore = create<EntryStore>()(
         filters: state.filters,
         readingPlan: state.readingPlan,
         duplicateGroups: state.duplicateGroups,
+        kanbanViewMode: state.kanbanViewMode,
+        expandedKanbanGroups: state.expandedKanbanGroups,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -1255,6 +1300,9 @@ export const useEntryStore = create<EntryStore>()(
           state.readingPlan = state.readingPlan || [];
           state.duplicateGroups = state.duplicateGroups || [];
           state.isDuplicateCheckerOpen = false;
+          state.isKanbanOpen = false;
+          state.kanbanViewMode = state.kanbanViewMode || 'cp';
+          state.expandedKanbanGroups = state.expandedKanbanGroups || {};
           if (state.readingPlan.length > 0 && state.entries.length > 0) {
             const entryIds = new Set(state.entries.map((e) => e.id));
             state.readingPlan = state.readingPlan
