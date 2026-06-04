@@ -912,6 +912,7 @@ export const useEntryStore = create<EntryStore>()(
             filters: data.filters,
             readingPlan: [...newPlanItems, ...state.readingPlan],
             filterFavorites: [...newFilterFavorites, ...state.filterFavorites],
+            kanbanViewMode: data.kanbanViewMode,
           }));
         } else {
           const newEntryIds = new Set(data.entries.map((e) => e.id));
