@@ -107,4 +107,23 @@ h1, h2, h3, h4, h5, h6 {
   .glass-panel {
     @apply bg-white/60 backdrop-blur-md rounded-2xl border border-white/50 shadow-soft;
   }
+
+  .autocomplete-container {
+    @apply relative;
+  }
+
+  .autocomplete-dropdown {
+    @apply absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto
+           rounded-xl border-2 border-primary-100 bg-white/95 backdrop-blur-md
+           shadow-soft-lg py-1;
+  }
+
+  .autocomplete-item {
+    @apply px-4 py-2.5 text-sm font-body text-gray-700 cursor-pointer
+           transition-colors duration-150;
+  }
+
+  .autocomplete-item-highlighted {
+    @apply bg-primary-50 text-primary-700;
+  }
 }

@@ -467,6 +467,18 @@ export const useEntryStore = create<EntryStore>()(
         return Array.from(cpSet).sort();
       },
 
+      getUniqueWorkNames: () => {
+        const { entries } = get();
+        const workSet = new Set(entries.map((e) => e.workName).filter(Boolean));
+        return Array.from(workSet).sort();
+      },
+
+      getUniqueAuthors: () => {
+        const { entries } = get();
+        const authorSet = new Set(entries.map((e) => e.author).filter(Boolean));
+        return Array.from(authorSet).sort();
+      },
+
       getStats: () => {
         const { entries, readingPlan } = get();
         const entryIds = new Set(entries.map((e) => e.id));

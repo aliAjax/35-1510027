@@ -100,6 +100,8 @@ export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataA
   getEntriesWithTag: (tagId: string) => Entry[];
   getFilteredEntries: () => Entry[];
   getUniqueCpNames: () => string[];
+  getUniqueWorkNames: () => string[];
+  getUniqueAuthors: () => string[];
   getStats: () => {
     total: number;
     favorites: number;

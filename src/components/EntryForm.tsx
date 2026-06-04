@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Tags } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
@@ -11,6 +11,7 @@ import {
   CUSTOM_TAG_COLORS,
 } from '../types';
 import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
+import { AutocompleteInput } from './AutocompleteInput';
 
 interface FormData {
   workName: string;
@@ -41,9 +42,13 @@ const defaultFormData: FormData = {
 };
 
 export const EntryForm = () => {
-  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager } = useEntryStore();
+  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager, getUniqueWorkNames, getUniqueCpNames, getUniqueAuthors, entries } = useEntryStore();
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isAnimating, setIsAnimating] = useState(false);
+
+  const workNameSuggestions = useMemo(() => getUniqueWorkNames(), [entries]);
+  const cpNameSuggestions = useMemo(() => getUniqueCpNames(), [entries]);
+  const authorSuggestions = useMemo(() => getUniqueAuthors(), [entries]);
 
   useEffect(() => {
     if (isFormOpen) {
@@ -137,12 +142,11 @@ export const EntryForm = () => {
               <label className="block text-sm font-display font-semibold text-gray-700 mb-1.5">
                 作品名 <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={formData.workName}
-                onChange={(e) => setFormData({ ...formData, workName: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, workName: val })}
+                suggestions={workNameSuggestions}
                 placeholder="例如：原神"
-                className="input-field"
                 required
               />
             </div>
@@ -150,12 +154,11 @@ export const EntryForm = () => {
               <label className="block text-sm font-display font-semibold text-gray-700 mb-1.5">
                 CP名 <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={formData.cpName}
-                onChange={(e) => setFormData({ ...formData, cpName: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, cpName: val })}
+                suggestions={cpNameSuggestions}
                 placeholder="例如：散枫"
-                className="input-field"
                 required
               />
             </div>
@@ -223,12 +226,11 @@ export const EntryForm = () => {
               <label className="block text-sm font-display font-semibold text-gray-700 mb-1.5">
                 作者
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={formData.author}
-                onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, author: val })}
+                suggestions={authorSuggestions}
                 placeholder="作者ID/昵称"
-                className="input-field"
               />
             </div>
           </div>
