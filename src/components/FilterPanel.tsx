@@ -1,5 +1,6 @@
 import { Filter, RotateCcw, Heart, Tags } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
+import { FilterFavorites } from './FilterFavorites';
 import {
   ENTRY_TYPES,
   READ_STATUSES,
@@ -38,8 +39,10 @@ export const FilterPanel = () => {
   };
 
   return (
-    <div className="glass-panel p-5 mb-6 animate-slide-up">
-      <div className="flex items-center justify-between mb-4">
+    <>
+      <FilterFavorites />
+      <div className="glass-panel p-5 mb-6 animate-slide-up">
+        <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Filter size={18} className="text-primary-500" />
           <h3 className="font-display font-semibold text-primary-700">筛选条件</h3>
@@ -230,5 +233,6 @@ export const FilterPanel = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };

@@ -37,10 +37,19 @@ export interface FilterState {
   searchKeyword: string;
 }
 
+export interface FilterFavorite {
+  id: string;
+  name: string;
+  filters: FilterState;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface EntryStore extends DuplicateCheckStore {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
+  filterFavorites: FilterFavorite[];
   editingEntry: Entry | null;
   isFormOpen: boolean;
   isDetailOpen: boolean;
@@ -58,6 +67,10 @@ export interface EntryStore extends DuplicateCheckStore {
   toggleFavorite: (id: string) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;
+  addFilterFavorite: (name: string, filters: FilterState) => void;
+  updateFilterFavorite: (id: string, updates: Partial<FilterFavorite>) => void;
+  deleteFilterFavorite: (id: string) => void;
+  applyFilterFavorite: (id: string) => void;
   openForm: (entry?: Entry) => void;
   closeForm: () => void;
   openDetail: (entry: Entry) => void;

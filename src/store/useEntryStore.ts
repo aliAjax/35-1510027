@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -24,6 +24,7 @@ export const useEntryStore = create<EntryStore>()(
       entries: [],
       customTags: [],
       filters: { ...defaultFilters },
+      filterFavorites: [],
       editingEntry: null,
       isFormOpen: false,
       isDetailOpen: false,
@@ -88,6 +89,65 @@ export const useEntryStore = create<EntryStore>()(
 
       resetFilters: () => {
         set({ filters: { ...defaultFilters } });
+      },
+
+      addFilterFavorite: (name, filters) => {
+        const now = Date.now();
+        const newFavorite: FilterFavorite = {
+          id: generateId(),
+          name,
+          filters: { ...filters },
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({
+          filterFavorites: [...state.filterFavorites, newFavorite],
+        }));
+      },
+
+      updateFilterFavorite: (id, updates) => {
+        set((state) => ({
+          filterFavorites: state.filterFavorites.map((fav) =>
+            fav.id === id
+              ? { ...fav, ...updates, updatedAt: Date.now() }
+              : fav
+          ),
+        }));
+      },
+
+      deleteFilterFavorite: (id) => {
+        set((state) => ({
+          filterFavorites: state.filterFavorites.filter((fav) => fav.id !== id),
+        }));
+      },
+
+      applyFilterFavorite: (id) => {
+        const { filterFavorites, customTags, entries } = get();
+        const favorite = filterFavorites.find((fav) => fav.id === id);
+        if (!favorite) return;
+
+        const validTags = new Set<string>(FLAVOR_TAGS);
+        const validCustomTagIds = new Set(customTags.map((t) => t.id));
+        const validTypes = new Set<string>(ENTRY_TYPES);
+        const validReadStatuses = new Set<string>(READ_STATUSES);
+        const validCpNames = new Set(entries.map((e) => e.cpName));
+
+        const appliedFilters: FilterState = {
+          ...favorite.filters,
+          tags: favorite.filters.tags.filter((tag) => validTags.has(tag)),
+          customTags: favorite.filters.customTags.filter((tagId) => validCustomTagIds.has(tagId)),
+          type: favorite.filters.type === 'all' || validTypes.has(favorite.filters.type)
+            ? favorite.filters.type
+            : 'all',
+          readStatus: favorite.filters.readStatus === 'all' || validReadStatuses.has(favorite.filters.readStatus)
+            ? favorite.filters.readStatus
+            : 'all',
+          cpName: validCpNames.has(favorite.filters.cpName)
+            ? favorite.filters.cpName
+            : '',
+        };
+
+        set({ filters: appliedFilters });
       },
 
       openForm: (entry) => {
@@ -1288,6 +1348,7 @@ export const useEntryStore = create<EntryStore>()(
         entries: state.entries,
         customTags: state.customTags,
         filters: state.filters,
+        filterFavorites: state.filterFavorites,
         readingPlan: state.readingPlan,
         duplicateGroups: state.duplicateGroups,
         kanbanViewMode: state.kanbanViewMode,
@@ -1326,6 +1387,7 @@ export const useEntryStore = create<EntryStore>()(
             ...state.filters,
             customTags: state.filters?.customTags || [],
           };
+          state.filterFavorites = state.filterFavorites || [];
           state.entries = state.entries?.map((entry) => ({
             ...entry,
             customTags: entry.customTags || [],
