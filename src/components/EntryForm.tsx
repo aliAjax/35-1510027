@@ -42,13 +42,13 @@ const defaultFormData: FormData = {
 };
 
 export const EntryForm = () => {
-  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager, getUniqueWorkNames, getUniqueCpNames, getUniqueAuthors, entries } = useEntryStore();
+  const { isFormOpen, editingEntry, closeForm, addEntry, updateEntry, customTags, openTagManager, getUniqueWorkNames, getUniqueCpNames, getUniqueAuthors } = useEntryStore();
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const workNameSuggestions = useMemo(() => getUniqueWorkNames(), [entries]);
-  const cpNameSuggestions = useMemo(() => getUniqueCpNames(), [entries]);
-  const authorSuggestions = useMemo(() => getUniqueAuthors(), [entries]);
+  const workNameSuggestions = useMemo(() => getUniqueWorkNames(), [getUniqueWorkNames]);
+  const cpNameSuggestions = useMemo(() => getUniqueCpNames(), [getUniqueCpNames]);
+  const authorSuggestions = useMemo(() => getUniqueAuthors(), [getUniqueAuthors]);
 
   useEffect(() => {
     if (isFormOpen) {
