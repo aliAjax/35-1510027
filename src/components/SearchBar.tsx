@@ -1,9 +1,9 @@
-import { Search, Plus, Heart, BookMarked, BookOpen, Clock, FileSpreadsheet, Tags, CalendarCheck, Copy, LayoutGrid, Link2 } from 'lucide-react';
+import { Search, Plus, Heart, BookMarked, BookOpen, Clock, FileSpreadsheet, Tags, CalendarCheck, Copy, LayoutGrid, Link2, BarChart3 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { BackupRestore } from './BackupRestore';
 
 export const SearchBar = () => {
-  const { filters, setFilters, openForm, openBatchImport, openTagManager, openReadingPlan, openDuplicateChecker, openKanban, openLinkManager, getStats } = useEntryStore();
+  const { filters, setFilters, openForm, openBatchImport, openTagManager, openReadingPlan, openDuplicateChecker, openKanban, openLinkManager, openDataAnalysis, getStats } = useEntryStore();
   const stats = getStats();
 
   return (
@@ -80,6 +80,14 @@ export const SearchBar = () => {
             >
               <Link2 size={18} />
               <span className="hidden sm:inline">链接管理</span>
+            </button>
+            <button
+              onClick={() => openDataAnalysis()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-display font-medium text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              title="数据分析"
+            >
+              <BarChart3 size={18} />
+              <span className="hidden sm:inline">数据分析</span>
             </button>
             <button onClick={() => openForm()} className="btn-primary whitespace-nowrap flex items-center justify-center gap-2">
               <Plus size={18} />

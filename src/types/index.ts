@@ -46,7 +46,7 @@ export interface FilterFavorite {
   updatedAt: number;
 }
 
-export interface EntryStore extends DuplicateCheckStore, LinkManagerStore {
+export interface EntryStore extends DuplicateCheckStore, LinkManagerStore, DataAnalysisStore {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
@@ -320,6 +320,48 @@ export interface LinkAnalysisResult {
   invalidLinks: number;
   domainGroups: LinkDomainGroup[];
   allLinks: LinkInfo[];
+}
+
+export interface CpDistributionItem {
+  cpName: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TypeDistributionItem {
+  type: EntryType;
+  count: number;
+  percentage: number;
+}
+
+export interface ReadStatusDistributionItem {
+  status: ReadStatus;
+  count: number;
+  percentage: number;
+}
+
+export interface TrendDataItem {
+  date: string;
+  timestamp: number;
+  count: number;
+}
+
+export interface DataAnalysisResult {
+  totalEntries: number;
+  cpDistribution: CpDistributionItem[];
+  typeDistribution: TypeDistributionItem[];
+  readStatusDistribution: ReadStatusDistributionItem[];
+  favoriteCount: number;
+  favoritePercentage: number;
+  trendData: TrendDataItem[];
+  hasData: boolean;
+}
+
+export interface DataAnalysisStore {
+  isDataAnalysisOpen: boolean;
+  openDataAnalysis: () => void;
+  closeDataAnalysis: () => void;
+  analyzeData: () => DataAnalysisResult;
 }
 
 export interface LinkManagerStore {

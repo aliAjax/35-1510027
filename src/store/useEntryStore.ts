@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -40,6 +40,7 @@ export const useEntryStore = create<EntryStore>()(
       kanbanViewMode: 'cp' as KanbanViewMode,
       expandedKanbanGroups: {},
       isLinkManagerOpen: false,
+      isDataAnalysisOpen: false,
 
       addEntry: (entryData) => {
         const now = Date.now();
@@ -1223,6 +1224,111 @@ export const useEntryStore = create<EntryStore>()(
             return { ...entry, notes: finalNotes, updatedAt: Date.now() };
           }),
         }));
+      },
+
+      openDataAnalysis: () => {
+        set({
+          isDataAnalysisOpen: true,
+          isFormOpen: false,
+          isDetailOpen: false,
+          isBatchImportOpen: false,
+          isTagManagerOpen: false,
+          isReadingPlanOpen: false,
+          isDuplicateCheckerOpen: false,
+          isKanbanOpen: false,
+          isLinkManagerOpen: false,
+        });
+      },
+
+      closeDataAnalysis: () => {
+        set({ isDataAnalysisOpen: false });
+      },
+
+      analyzeData: (): DataAnalysisResult => {
+        const { entries } = get();
+        const totalEntries = entries.length;
+        const hasData = totalEntries > 0;
+
+        if (!hasData) {
+          return {
+            totalEntries: 0,
+            cpDistribution: [],
+            typeDistribution: [],
+            readStatusDistribution: [],
+            favoriteCount: 0,
+            favoritePercentage: 0,
+            trendData: [],
+            hasData: false,
+          };
+        }
+
+        const cpCount = new Map<string, number>();
+        const typeCount = new Map<EntryType, number>();
+        const readStatusCount = new Map<ReadStatus, number>();
+        let favoriteCount = 0;
+
+        const dailyCount = new Map<string, number>();
+        const now = Date.now();
+        const daysToShow = 14;
+
+        for (let i = daysToShow - 1; i >= 0; i--) {
+          const date = new Date(now - i * 24 * 60 * 60 * 1000);
+          const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+          dailyCount.set(dateStr, 0);
+        }
+
+        entries.forEach((entry) => {
+          cpCount.set(entry.cpName, (cpCount.get(entry.cpName) || 0) + 1);
+          typeCount.set(entry.type, (typeCount.get(entry.type) || 0) + 1);
+          readStatusCount.set(entry.readStatus, (readStatusCount.get(entry.readStatus) || 0) + 1);
+          if (entry.favorite) favoriteCount++;
+
+          const entryDate = new Date(entry.createdAt);
+          const daysDiff = Math.floor((now - entry.createdAt) / (24 * 60 * 60 * 1000));
+          if (daysDiff < daysToShow) {
+            const dateStr = `${entryDate.getMonth() + 1}/${entryDate.getDate()}`;
+            dailyCount.set(dateStr, (dailyCount.get(dateStr) || 0) + 1);
+          }
+        });
+
+        const cpDistribution: CpDistributionItem[] = Array.from(cpCount.entries())
+          .map(([cpName, count]) => ({
+            cpName,
+            count,
+            percentage: Math.round((count / totalEntries) * 100),
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
+
+        const typeDistribution: TypeDistributionItem[] = ENTRY_TYPES.map((type) => ({
+          type,
+          count: typeCount.get(type) || 0,
+          percentage: Math.round(((typeCount.get(type) || 0) / totalEntries) * 100),
+        })).filter((item) => item.count > 0);
+
+        const readStatusDistribution: ReadStatusDistributionItem[] = READ_STATUSES.map((status) => ({
+          status,
+          count: readStatusCount.get(status) || 0,
+          percentage: Math.round(((readStatusCount.get(status) || 0) / totalEntries) * 100),
+        }));
+
+        const trendData: TrendDataItem[] = Array.from(dailyCount.entries())
+          .map(([date, count]) => ({
+            date,
+            timestamp: new Date(date).getTime(),
+            count,
+          }));
+
+        return {
+          totalEntries,
+          cpDistribution,
+          typeDistribution,
+          readStatusDistribution,
+          favoriteCount,
+          favoritePercentage: Math.round((favoriteCount / totalEntries) * 100),
+          trendData,
+          hasData: true,
+        };
       },
 
       openDuplicateChecker: () => {

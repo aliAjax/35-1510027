@@ -12,6 +12,7 @@ import { ReadingPlan } from '../components/ReadingPlan';
 import { DuplicateChecker } from '../components/DuplicateChecker';
 import { KanbanView } from '../components/KanbanView';
 import { LinkManager } from '../components/LinkManager';
+import { DataAnalyzer } from '../components/DataAnalyzer';
 import { MigrationNotice } from '../components/MigrationNotice';
 import { loadSampleDataIfEmpty } from '../utils/sampleData';
 
@@ -81,6 +82,7 @@ export default function Home() {
       <DuplicateChecker />
       <KanbanView />
       <LinkManager />
+      <DataAnalyzer />
     </div>
   );
 }
