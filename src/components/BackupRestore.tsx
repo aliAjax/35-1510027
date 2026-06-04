@@ -174,6 +174,28 @@ export const BackupRestore = () => {
                             </p>
                           </div>
                         )}
+                        {(importResult.readingPlanCount > 0 || importResult.filterFavoritesCount > 0 || importResult.hasKanbanViewMode) && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="text-xs text-gray-500 mb-1">其他数据：</p>
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              {importResult.readingPlanCount > 0 && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                  阅读计划：{importResult.readingPlanCount} 条
+                                </span>
+                              )}
+                              {importResult.filterFavoritesCount > 0 && (
+                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                  筛选收藏：{importResult.filterFavoritesCount} 个
+                                </span>
+                              )}
+                              {importResult.hasKanbanViewMode && (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
+                                  看板分组模式
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

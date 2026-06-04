@@ -215,6 +215,9 @@ export interface BackupData {
   entries: Entry[];
   customTags: CustomTag[];
   filters: FilterState;
+  readingPlan: ReadingPlanItem[];
+  filterFavorites: FilterFavorite[];
+  kanbanViewMode: KanbanViewMode;
 }
 
 export interface ImportResult {
@@ -224,6 +227,9 @@ export interface ImportResult {
   duplicateCount: number;
   currentEntriesCount: number;
   overwriteCount: number;
+  readingPlanCount: number;
+  filterFavoritesCount: number;
+  hasKanbanViewMode: boolean;
   errors: string[];
   warnings: string[];
   data?: BackupData;

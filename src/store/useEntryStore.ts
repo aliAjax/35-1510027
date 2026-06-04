@@ -540,13 +540,16 @@ export const useEntryStore = create<EntryStore>()(
       },
 
       exportData: () => {
-        const { entries, customTags, filters } = get();
+        const { entries, customTags, filters, readingPlan, filterFavorites, kanbanViewMode } = get();
         return {
-          version: '1.0',
+          version: '1.1',
           exportedAt: Date.now(),
           entries,
           customTags,
           filters,
+          readingPlan,
+          filterFavorites,
+          kanbanViewMode,
         };
       },
 
@@ -565,6 +568,9 @@ export const useEntryStore = create<EntryStore>()(
             duplicateCount: 0,
             currentEntriesCount: 0,
             overwriteCount: 0,
+            readingPlanCount: 0,
+            filterFavoritesCount: 0,
+            hasKanbanViewMode: false,
             errors: ['JSON 格式错误，请检查文件内容'],
             warnings: [],
           };
@@ -578,6 +584,9 @@ export const useEntryStore = create<EntryStore>()(
             duplicateCount: 0,
             currentEntriesCount: 0,
             overwriteCount: 0,
+            readingPlanCount: 0,
+            filterFavoritesCount: 0,
+            hasKanbanViewMode: false,
             errors: ['数据格式无效，根元素必须为对象'],
             warnings: [],
           };
@@ -624,6 +633,9 @@ export const useEntryStore = create<EntryStore>()(
             duplicateCount: 0,
             currentEntriesCount: 0,
             overwriteCount: 0,
+            readingPlanCount: 0,
+            filterFavoritesCount: 0,
+            hasKanbanViewMode: false,
             errors: ['entries 字段缺失或格式错误，必须为数组'],
             warnings,
           };
@@ -697,6 +709,71 @@ export const useEntryStore = create<EntryStore>()(
             dateFrom: (rawFilters.dateFrom as number | null) ?? null,
             dateTo: (rawFilters.dateTo as number | null) ?? null,
           };
+        }
+
+        const rawData = data as unknown as Record<string, unknown>;
+        const validKanbanModes: KanbanViewMode[] = ['cp', 'work', 'readStatus', 'type'];
+        let hasKanbanViewMode = false;
+        let readingPlanCount = 0;
+        let filterFavoritesCount = 0;
+
+        if (!Array.isArray(rawData.readingPlan)) {
+          warnings.push('阅读计划数据缺失或格式错误，将使用空数组');
+          (data as unknown as Record<string, unknown>).readingPlan = [];
+        } else {
+          const validPlanItemStatuses = new Set<string>(['planned', 'done', 'skipped']);
+          const rawPlan = rawData.readingPlan as unknown[];
+          const validPlanItems: ReadingPlanItem[] = [];
+          rawPlan.forEach((item) => {
+            if (item && typeof item === 'object'
+              && 'entryId' in item && typeof (item as Record<string, unknown>).entryId === 'string'
+              && 'addedAt' in item && typeof (item as Record<string, unknown>).addedAt === 'number'
+              && 'order' in item && typeof (item as Record<string, unknown>).order === 'number'
+              && 'status' in item && typeof (item as Record<string, unknown>).status === 'string'
+              && validPlanItemStatuses.has((item as Record<string, unknown>).status as string)
+            ) {
+              validPlanItems.push(item as ReadingPlanItem);
+            }
+          });
+          if (validPlanItems.length !== rawPlan.length) {
+            warnings.push(`阅读计划中已移除 ${rawPlan.length - validPlanItems.length} 个无效项`);
+          }
+          (data as unknown as Record<string, unknown>).readingPlan = validPlanItems;
+          readingPlanCount = validPlanItems.length;
+        }
+
+        if (!Array.isArray(rawData.filterFavorites)) {
+          warnings.push('筛选收藏数据缺失或格式错误，将使用空数组');
+          (data as unknown as Record<string, unknown>).filterFavorites = [];
+        } else {
+          const rawFavorites = rawData.filterFavorites as unknown[];
+          const validFavorites: FilterFavorite[] = [];
+          const seenFavIds = new Set<string>();
+          rawFavorites.forEach((fav) => {
+            if (fav && typeof fav === 'object'
+              && 'id' in fav && typeof (fav as Record<string, unknown>).id === 'string'
+              && 'name' in fav && typeof (fav as Record<string, unknown>).name === 'string'
+              && 'filters' in fav && (fav as Record<string, unknown>).filters && typeof (fav as Record<string, unknown>).filters === 'object'
+            ) {
+              const favId = (fav as Record<string, unknown>).id as string;
+              if (!seenFavIds.has(favId)) {
+                seenFavIds.add(favId);
+                validFavorites.push(fav as FilterFavorite);
+              }
+            }
+          });
+          if (validFavorites.length !== rawFavorites.length) {
+            warnings.push(`筛选收藏中已移除 ${rawFavorites.length - validFavorites.length} 个无效项`);
+          }
+          (data as unknown as Record<string, unknown>).filterFavorites = validFavorites;
+          filterFavoritesCount = validFavorites.length;
+        }
+
+        if (!rawData.kanbanViewMode || typeof rawData.kanbanViewMode !== 'string' || !validKanbanModes.includes(rawData.kanbanViewMode as KanbanViewMode)) {
+          warnings.push('看板分组模式缺失或格式错误，将使用默认值');
+          (data as unknown as Record<string, unknown>).kanbanViewMode = 'cp';
+        } else {
+          hasKanbanViewMode = true;
         }
 
         const rawEntries = data.entries as unknown as Record<string, unknown>[];
@@ -806,6 +883,9 @@ export const useEntryStore = create<EntryStore>()(
           duplicateCount,
           currentEntriesCount,
           overwriteCount,
+          readingPlanCount,
+          filterFavoritesCount,
+          hasKanbanViewMode,
           errors,
           warnings,
           data,
@@ -814,26 +894,37 @@ export const useEntryStore = create<EntryStore>()(
 
       importData: (data: BackupData, merge: boolean) => {
         if (merge) {
-          const { entries: currentEntries, customTags: currentTags } = get();
+          const { entries: currentEntries, customTags: currentTags, filterFavorites: currentFilterFavorites } = get();
           const currentIds = new Set(currentEntries.map((e) => e.id));
           const currentTagIds = new Set(currentTags.map((t) => t.id));
+          const currentFavIds = new Set(currentFilterFavorites.map((f) => f.id));
           const newEntries = data.entries.filter((e) => !currentIds.has(e.id));
           const newCustomTags = data.customTags.filter((t) => !currentTagIds.has(t.id));
+          const newFilterFavorites = data.filterFavorites.filter((f) => !currentFavIds.has(f.id));
+          const existingPlanIds = new Set(get().readingPlan.map((p) => p.entryId));
+          const newPlanItems = data.readingPlan
+            .filter((p) => currentIds.has(p.entryId) || newEntries.some((e) => e.id === p.entryId))
+            .filter((p) => !existingPlanIds.has(p.entryId))
+            .map((p, idx, arr) => ({ ...p, order: get().readingPlan.length + arr.length - idx }));
           set((state) => ({
             entries: [...newEntries, ...state.entries],
             customTags: [...newCustomTags, ...state.customTags],
             filters: data.filters,
+            readingPlan: [...newPlanItems, ...state.readingPlan],
+            filterFavorites: [...newFilterFavorites, ...state.filterFavorites],
           }));
         } else {
           const newEntryIds = new Set(data.entries.map((e) => e.id));
-          set((state) => ({
+          set({
             entries: data.entries,
             customTags: data.customTags,
             filters: data.filters,
-            readingPlan: state.readingPlan
+            readingPlan: data.readingPlan
               .filter((item) => newEntryIds.has(item.entryId))
               .map((item, idx) => ({ ...item, order: idx + 1 })),
-          }));
+            filterFavorites: data.filterFavorites,
+            kanbanViewMode: data.kanbanViewMode,
+          });
         }
       },
 
