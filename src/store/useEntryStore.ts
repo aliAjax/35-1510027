@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption, ImportStrategy, DuplicateMatch, Rating, RatingDistributionItem } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption, ImportStrategy, DuplicateMatch, Rating, RatingDistributionItem, RatingFilter } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -730,7 +730,7 @@ export const useEntryStore = create<EntryStore>()(
             customTags: rawFilters.customTags as string[],
             readStatus: rawFilters.readStatus as ReadStatus | 'all',
             favoriteOnly: rawFilters.favoriteOnly as boolean,
-            rating: (rawFilters.rating as any) ?? 'all',
+            rating: (rawFilters.rating as unknown as RatingFilter) ?? 'all',
             revisitDateFrom: (rawFilters.revisitDateFrom as number | null) ?? null,
             revisitDateTo: (rawFilters.revisitDateTo as number | null) ?? null,
             hasRevisitDate: (rawFilters.hasRevisitDate as boolean | 'all') ?? 'all',
@@ -787,6 +787,11 @@ export const useEntryStore = create<EntryStore>()(
               const favId = (fav as Record<string, unknown>).id as string;
               if (!seenFavIds.has(favId)) {
                 seenFavIds.add(favId);
+                const favFilters = (fav as Record<string, unknown>).filters as Record<string, unknown>;
+                if (favFilters.rating === undefined) favFilters.rating = 'all';
+                if (favFilters.revisitDateFrom === undefined) favFilters.revisitDateFrom = null;
+                if (favFilters.revisitDateTo === undefined) favFilters.revisitDateTo = null;
+                if (favFilters.hasRevisitDate === undefined) favFilters.hasRevisitDate = 'all';
                 validFavorites.push(fav as FilterFavorite);
               }
             }
@@ -876,11 +881,17 @@ export const useEntryStore = create<EntryStore>()(
             warnings.push(`${label}收藏标记格式错误`);
           }
           const rawEntry = entry as unknown as Record<string, unknown>;
-          if (rawEntry.rating !== undefined && (typeof rawEntry.rating !== 'number' || rawEntry.rating < 0 || rawEntry.rating > 5)) {
-            warnings.push(`${label}评分格式错误`);
+          if (rawEntry.rating === undefined) {
+            rawEntry.rating = 0;
+          } else if (typeof rawEntry.rating !== 'number' || rawEntry.rating < 0 || rawEntry.rating > 5) {
+            warnings.push(`${label}评分格式错误，已使用默认值`);
+            rawEntry.rating = 0;
           }
-          if (rawEntry.revisitDate !== undefined && rawEntry.revisitDate !== null && (typeof rawEntry.revisitDate !== 'number' || rawEntry.revisitDate <= 0)) {
-            warnings.push(`${label}重温日期格式错误`);
+          if (rawEntry.revisitDate === undefined) {
+            rawEntry.revisitDate = null;
+          } else if (rawEntry.revisitDate !== null && (typeof rawEntry.revisitDate !== 'number' || rawEntry.revisitDate <= 0)) {
+            warnings.push(`${label}重温日期格式错误，已使用默认值`);
+            rawEntry.revisitDate = null;
           }
           if (typeof entry.createdAt !== 'number' || entry.createdAt <= 0) {
             warnings.push(`${label}创建时间格式错误`);

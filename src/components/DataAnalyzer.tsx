@@ -18,7 +18,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
-import type { EntryType, ReadStatus, TrendDataItem, FilterState } from '../types';
+import type { EntryType, ReadStatus, TrendDataItem, FilterState, RatingFilter } from '../types';
 import { TYPE_COLORS, READ_STATUS_COLORS } from '../types';
 
 const baseFilters: FilterState = {
@@ -113,7 +113,7 @@ export const DataAnalyzer = () => {
 
   const handleRatingClick = (rating: number | 'rated' | 'unrated') => {
     resetFilters();
-    setFilters({ rating: rating as any });
+    setFilters({ rating: rating as unknown as RatingFilter });
     closeModal();
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Tags, Star, Calendar, Clock } from 'lucide-react';
+import { X, Tags, Star, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
   ENTRY_TYPES,
