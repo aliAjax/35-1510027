@@ -14,10 +14,29 @@ import {
   BookMarked,
   BookmarkPlus,
   Check,
+  Star,
+  Clock,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import type { EntryType, ReadStatus, TrendDataItem, FilterState } from '../types';
 import { TYPE_COLORS, READ_STATUS_COLORS } from '../types';
+
+const baseFilters: FilterState = {
+  cpName: '',
+  type: 'all',
+  status: 'all',
+  tags: [],
+  customTags: [],
+  readStatus: 'all',
+  favoriteOnly: false,
+  rating: 'all',
+  revisitDateFrom: null,
+  revisitDateTo: null,
+  hasRevisitDate: 'all',
+  searchKeyword: '',
+  dateFrom: null,
+  dateTo: null,
+};
 
 const CHART_COLORS = [
   '#8b5cf6',
@@ -89,6 +108,18 @@ export const DataAnalyzer = () => {
   const handleFavoriteClick = () => {
     resetFilters();
     setFilters({ favoriteOnly: true });
+    closeModal();
+  };
+
+  const handleRatingClick = (rating: number | 'rated' | 'unrated') => {
+    resetFilters();
+    setFilters({ rating: rating as any });
+    closeModal();
+  };
+
+  const handleRevisitDateClick = () => {
+    resetFilters();
+    setFilters({ hasRevisitDate: true });
     closeModal();
   };
 
@@ -274,7 +305,7 @@ export const DataAnalyzer = () => {
 
   const OverviewTab = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="glass-panel p-4 cursor-pointer hover:shadow-soft-lg transition-all" onClick={handleFavoriteClick}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center">
@@ -324,6 +355,32 @@ export const DataAnalyzer = () => {
                 {analysisData.trendData.reduce((sum, d) => sum + d.count, 0)}
               </div>
               <div className="text-xs text-gray-500 font-medium">近14天新增</div>
+            </div>
+          </div>
+        </div>
+        <div className="glass-panel p-4 cursor-pointer hover:shadow-soft-lg transition-all" onClick={() => handleRatingClick('rated')}>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-yellow-100 flex items-center justify-center">
+              <Star size={22} className="text-amber-500" fill="currentColor" />
+            </div>
+            <div>
+              <div className="text-2xl font-display font-bold text-gray-800">
+                {analysisData.ratingDistribution?.filter((r) => r.rating > 0).reduce((sum, r) => sum + r.count, 0) || 0}
+              </div>
+              <div className="text-xs text-gray-500 font-medium">已评分</div>
+            </div>
+          </div>
+        </div>
+        <div className="glass-panel p-4 cursor-pointer hover:shadow-soft-lg transition-all" onClick={handleRevisitDateClick}>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center">
+              <Clock size={22} className="text-purple-500" />
+            </div>
+            <div>
+              <div className="text-2xl font-display font-bold text-gray-800">
+                {analysisData.revisitDateCount || 0}
+              </div>
+              <div className="text-xs text-gray-500 font-medium">重温计划</div>
             </div>
           </div>
         </div>
@@ -423,6 +480,50 @@ export const DataAnalyzer = () => {
                 ))}
             </div>
           </div>
+        </div>
+
+        <div className="glass-panel p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-gray-800 flex items-center gap-2">
+              <Star size={18} className="text-amber-500" />
+              评分分布
+            </h3>
+            <button
+              onClick={() => handleRatingClick('rated')}
+              className="text-sm text-primary-500 hover:text-primary-600 flex items-center gap-1 font-display"
+            >
+              查看已评分 <ArrowRight size={14} />
+            </button>
+          </div>
+          {analysisData.ratingDistribution && analysisData.ratingDistribution.length > 0 ? (
+            <div className="space-y-2">
+              {analysisData.ratingDistribution.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 cursor-pointer group"
+                  onClick={() => item.rating > 0 && handleRatingClick(item.rating)}
+                >
+                  <div className="w-16 text-sm text-gray-600 truncate font-display group-hover:text-primary-600 transition-colors">
+                    {item.rating === 0 ? '未评分' : '⭐'.repeat(item.rating)}
+                  </div>
+                  <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 group-hover:opacity-80"
+                      style={{
+                        width: `${item.percentage}%`,
+                        backgroundColor: item.rating === 0 ? '#9ca3af' : '#f59e0b',
+                      }}
+                    />
+                  </div>
+                  <div className="w-20 text-right text-sm font-semibold text-gray-700 font-display">
+                    {item.count} ({item.percentage}%)
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8">暂无评分数据</div>
+          )}
         </div>
       </div>
 
@@ -547,7 +648,7 @@ export const DataAnalyzer = () => {
             </div>
             <button
               onClick={(e) => handleStartSaveFilter(
-                { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: item.workName, dateFrom: null, dateTo: null },
+                { ...baseFilters, searchKeyword: item.workName },
                 `作品：${item.workName}`,
                 e
               )}
@@ -601,7 +702,7 @@ export const DataAnalyzer = () => {
             </div>
             <button
               onClick={(e) => handleStartSaveFilter(
-                { cpName: item.cpName, type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                { ...baseFilters, cpName: item.cpName },
                 `CP：${item.cpName}`,
                 e
               )}
@@ -632,7 +733,7 @@ export const DataAnalyzer = () => {
           >
             <button
               onClick={(e) => handleStartSaveFilter(
-                { cpName: '', type: item.type, status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                { ...baseFilters, type: item.type },
                 `类型：${item.type}`,
                 e
               )}
@@ -679,7 +780,7 @@ export const DataAnalyzer = () => {
           >
             <button
               onClick={(e) => handleStartSaveFilter(
-                { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: item.status, favoriteOnly: false, searchKeyword: '', dateFrom: null, dateTo: null },
+                { ...baseFilters, readStatus: item.status },
                 `阅读状态：${item.status}`,
                 e
               )}
@@ -736,7 +837,7 @@ export const DataAnalyzer = () => {
             >
               <button
                 onClick={(e) => handleStartSaveFilter(
-                  { cpName: '', type: 'all', status: 'all', tags: [], customTags: [], readStatus: 'all', favoriteOnly: false, searchKeyword: '', dateFrom, dateTo },
+                  { ...baseFilters, dateFrom, dateTo },
                   `日期：${item.date}`,
                   e
                 )}

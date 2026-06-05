@@ -10,6 +10,8 @@ export interface CustomTag {
   createdAt: number;
 }
 
+export type Rating = 1 | 2 | 3 | 4 | 5 | 0;
+
 export interface Entry {
   id: string;
   workName: string;
@@ -23,9 +25,13 @@ export interface Entry {
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;
+  rating: Rating;
+  revisitDate: number | null;
   createdAt: number;
   updatedAt: number;
 }
+
+export type RatingFilter = Rating | 'all' | 'rated' | 'unrated';
 
 export interface FilterState {
   cpName: string;
@@ -35,6 +41,10 @@ export interface FilterState {
   customTags: string[];
   readStatus: ReadStatus | 'all';
   favoriteOnly: boolean;
+  rating: RatingFilter;
+  revisitDateFrom: number | null;
+  revisitDateTo: number | null;
+  hasRevisitDate: boolean | 'all';
   searchKeyword: string;
   dateFrom: number | null;
   dateTo: number | null;
@@ -271,6 +281,8 @@ export interface ParsedBatchEntry {
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;
+  rating: Rating;
+  revisitDate: number | null;
   isValid: boolean;
   errors: string[];
   warnings: string[];
@@ -406,12 +418,24 @@ export interface TrendDataItem {
   count: number;
 }
 
+export interface RatingDistributionItem {
+  rating: Rating;
+  count: number;
+  percentage: number;
+  label: string;
+}
+
 export interface DataAnalysisResult {
   totalEntries: number;
   cpDistribution: CpDistributionItem[];
   workDistribution: WorkDistributionItem[];
   typeDistribution: TypeDistributionItem[];
   readStatusDistribution: ReadStatusDistributionItem[];
+  ratingDistribution: RatingDistributionItem[];
+  ratedCount: number;
+  ratedPercentage: number;
+  revisitDateCount: number;
+  revisitDatePercentage: number;
   favoriteCount: number;
   favoritePercentage: number;
   trendData: TrendDataItem[];

@@ -13,6 +13,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '已读',
     notes: '超级甜！！两个人的互动太可爱了，散兵的傲娇描写得刚刚好。',
     favorite: true,
+    rating: 5,
+    revisitDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime(),
   },
   {
     workName: '原神',
@@ -26,6 +28,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '在读',
     notes: '学院日常向，小情侣拌嘴日常百看不厌~',
     favorite: true,
+    rating: 4,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -39,6 +43,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '已读',
     notes: '呜呜呜我的心好痛，但是写得太好了，BE美学天花板。',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '流浪地球2',
@@ -52,6 +58,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '已读',
     notes: '科幻感拉满，关于数字生命的探讨很有深度。',
     favorite: true,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -65,6 +73,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '未读',
     notes: 'B站看到的剪辑，配乐超棒！',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -78,6 +88,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '在读',
     notes: '长篇连载，追更中！剧情很棒，感情线细腻。',
     favorite: true,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '明日方舟',
@@ -91,6 +103,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '未读',
     notes: '收藏了很久还没看，据说很刀...',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -104,6 +118,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '已读',
     notes: '太太画的知妙太可爱了！两个人贴贴的样子好幸福~',
     favorite: true,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -117,6 +133,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '未读',
     notes: '同人广播剧，据说配得超好。',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '流浪地球2',
@@ -130,6 +148,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '弃坑',
     notes: '画风不太对我的审美...',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -143,6 +163,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '已读',
     notes: '经典老番了，但是每次看都很喜欢！',
     favorite: true,
+    rating: 0,
+    revisitDate: null,
   },
   {
     workName: '原神',
@@ -156,6 +178,8 @@ export const sampleEntries: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>[] = [
     readStatus: '弃坑',
     notes: '作者坑了...可惜了这么好的设定。',
     favorite: false,
+    rating: 0,
+    revisitDate: null,
   },
 ];
 

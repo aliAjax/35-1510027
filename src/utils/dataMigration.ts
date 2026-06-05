@@ -1,7 +1,7 @@
-import type { Entry, FilterState, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, SortOption, FilterFavorite } from '../types';
+import type { Entry, FilterState, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, SortOption, FilterFavorite, Rating } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 export const STORAGE_KEY = 'cp-grain-list-data';
 export const BACKUP_KEY = 'cp-grain-list-data-backup';
 export const MIGRATION_INFO_KEY = 'cp-grain-list-migration-info';
@@ -40,7 +40,20 @@ export interface PersistedStateV2 {
   sortOption: SortOption;
 }
 
-export type PersistedState = PersistedStateV2;
+export interface PersistedStateV3 {
+  schemaVersion: 3;
+  entries: Entry[];
+  customTags: CustomTag[];
+  filters: FilterState;
+  filterFavorites: FilterFavorite[];
+  readingPlan: ReadingPlanItem[];
+  duplicateGroups: DuplicateGroup[];
+  kanbanViewMode: KanbanViewMode;
+  expandedKanbanGroups: Record<string, boolean>;
+  sortOption: SortOption;
+}
+
+export type PersistedState = PersistedStateV3;
 
 export interface MigrationResult {
   success: boolean;
@@ -68,6 +81,10 @@ const defaultFilters: FilterState = {
   customTags: [],
   readStatus: 'all',
   favoriteOnly: false,
+  rating: 'all',
+  revisitDateFrom: null,
+  revisitDateTo: null,
+  hasRevisitDate: 'all',
   searchKeyword: '',
   dateFrom: null,
   dateTo: null,
@@ -83,6 +100,8 @@ const defaultEntry: Omit<Entry, 'id' | 'workName' | 'cpName' | 'createdAt' | 'up
   readStatus: '未读',
   notes: '',
   favorite: false,
+  rating: 0,
+  revisitDate: null,
 };
 
 function isValidEntryType(value: unknown): value is Entry['type'] {
@@ -174,6 +193,23 @@ export function validateAndFixEntry(rawEntry: unknown, index: number, warnings: 
 
   const notes = typeof entry.notes === 'string' ? entry.notes : defaultEntry.notes;
   const favorite = typeof entry.favorite === 'boolean' ? entry.favorite : defaultEntry.favorite;
+
+  let rating: Rating = defaultEntry.rating;
+  if (typeof entry.rating === 'number' && [0, 1, 2, 3, 4, 5].includes(entry.rating)) {
+    rating = entry.rating as Rating;
+  } else if (entry.rating !== undefined) {
+    warnings.push(`${label}: 评分格式错误，已设为默认值`);
+  }
+
+  let revisitDate: number | null = defaultEntry.revisitDate;
+  if (entry.revisitDate === null || entry.revisitDate === undefined) {
+    revisitDate = null;
+  } else if (typeof entry.revisitDate === 'number' && entry.revisitDate > 0) {
+    revisitDate = entry.revisitDate;
+  } else {
+    warnings.push(`${label}: 重温日期格式错误，已设为默认值`);
+  }
+
   const createdAt = typeof entry.createdAt === 'number' && entry.createdAt > 0 ? entry.createdAt : Date.now() - index * 1000;
   const updatedAt = typeof entry.updatedAt === 'number' && entry.updatedAt > 0 ? entry.updatedAt : Date.now();
 
@@ -190,6 +226,8 @@ export function validateAndFixEntry(rawEntry: unknown, index: number, warnings: 
     readStatus,
     notes,
     favorite,
+    rating,
+    revisitDate,
     createdAt,
     updatedAt,
   };
@@ -227,6 +265,22 @@ export function validateAndFixFilters(rawFilters: unknown, warnings: string[]): 
 
   if (typeof raw.favoriteOnly === 'boolean') {
     filters.favoriteOnly = raw.favoriteOnly;
+  }
+
+  const validRatingFilters = ['all', 'rated', 'unrated', 0, 1, 2, 3, 4, 5];
+  if (validRatingFilters.includes(raw.rating as string | number)) {
+    filters.rating = raw.rating as FilterState['rating'];
+  }
+
+  if (typeof raw.revisitDateFrom === 'number' && raw.revisitDateFrom > 0) {
+    filters.revisitDateFrom = raw.revisitDateFrom;
+  }
+  if (typeof raw.revisitDateTo === 'number' && raw.revisitDateTo > 0) {
+    filters.revisitDateTo = raw.revisitDateTo;
+  }
+
+  if (raw.hasRevisitDate === true || raw.hasRevisitDate === false || raw.hasRevisitDate === 'all') {
+    filters.hasRevisitDate = raw.hasRevisitDate;
   }
 
   if (typeof raw.searchKeyword === 'string') {
@@ -421,6 +475,30 @@ export function migrateV1ToV2(data: PersistedStateV1, warnings: string[]): Persi
   };
 }
 
+export function migrateV2ToV3(data: PersistedStateV2, warnings: string[]): PersistedStateV3 {
+  const entryIds = new Set(data.entries.map((e) => e.id));
+
+  return {
+    schemaVersion: 3,
+    entries: data.entries.map((entry) => ({
+      ...entry,
+      rating: (entry as unknown as { rating?: Rating }).rating ?? 0,
+      revisitDate: (entry as unknown as { revisitDate?: number | null }).revisitDate ?? null,
+    })),
+    customTags: validateAndFixCustomTags(data.customTags, warnings),
+    filters: validateAndFixFilters(data.filters, warnings),
+    filterFavorites: data.filterFavorites.map((fav) => ({
+      ...fav,
+      filters: validateAndFixFilters(fav.filters, warnings),
+    })),
+    readingPlan: validateAndFixReadingPlan(data.readingPlan, entryIds, warnings),
+    duplicateGroups: validateAndFixDuplicateGroups(data.duplicateGroups, entryIds, warnings),
+    kanbanViewMode: isValidKanbanViewMode(data.kanbanViewMode) ? data.kanbanViewMode : 'cp',
+    expandedKanbanGroups: data.expandedKanbanGroups || {},
+    sortOption: data.sortOption || 'createdAtDesc',
+  };
+}
+
 export function getSchemaVersion(data: unknown): number {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return 0;
@@ -530,13 +608,17 @@ export function migrateData(rawData: unknown): MigrationResult {
   }
 
   try {
-    let migratedData: PersistedStateV0 | PersistedStateV1 | PersistedStateV2;
+    let migratedData: PersistedStateV0 | PersistedStateV1 | PersistedStateV2 | PersistedStateV3;
 
     if (fromVersion === 0) {
       migratedData = migrateV0ToV1(rawData as PersistedStateV0, warnings);
       migratedData = migrateV1ToV2(migratedData as PersistedStateV1, warnings);
+      migratedData = migrateV2ToV3(migratedData as PersistedStateV2, warnings);
     } else if (fromVersion === 1) {
       migratedData = migrateV1ToV2(rawData as PersistedStateV1, warnings);
+      migratedData = migrateV2ToV3(migratedData as PersistedStateV2, warnings);
+    } else if (fromVersion === 2) {
+      migratedData = migrateV2ToV3(rawData as PersistedStateV2, warnings);
     } else if (fromVersion === CURRENT_SCHEMA_VERSION) {
       const result: MigrationResult = {
         success: true,

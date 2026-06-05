@@ -207,10 +207,10 @@ export const BatchImport = () => {
                       格式说明：每行一条数据，字段用逗号或制表符分隔，顺序为：
                     </p>
                     <code className="block text-xs bg-blue-100 p-2 rounded text-blue-800">
-                      作品名, CP名, 类型, 链接, 作者, 状态, 标签, 自定义标签, 阅读状态, 备注, 收藏
+                      作品名, CP名, 类型, 链接, 作者, 状态, 标签, 自定义标签, 阅读状态, 备注, 收藏, 评分, 重温日期
                     </code>
                     <p className="text-xs text-blue-600 mt-2">
-                      类型可选：同人文、同人漫、视频、音频、图、其他 | 状态可选：连载中、已完结、暂停、坑 | 标签用空格或顿号分隔 | 自定义标签需先在标签管理中创建
+                      类型可选：同人文、同人漫、视频、音频、图、其他 | 状态可选：连载中、已完结、暂停、坑 | 标签用空格或顿号分隔 | 自定义标签需先在标签管理中创建 | 评分：1-5数字 | 重温日期：YYYY-MM-DD格式
                     </p>
                   </div>
                   <div className="relative">
@@ -252,10 +252,12 @@ export const BatchImport = () => {
                       CSV 文件格式要求：
                     </p>
                     <ul className="text-xs text-blue-600 space-y-1">
-                      <li>• 第一行为表头（可选）：作品名,CP名,类型,链接,作者,状态,标签,自定义标签,阅读状态,备注,收藏</li>
+                      <li>• 第一行为表头（可选）：作品名,CP名,类型,链接,作者,状态,标签,自定义标签,阅读状态,备注,收藏,评分,重温日期</li>
                       <li>• 标签字段多个标签用空格或顿号分隔</li>
                       <li>• 自定义标签需先在标签管理中创建，通过名称匹配</li>
                       <li>• 收藏字段：true/是/yes/1 表示收藏</li>
+                      <li>• 评分字段：1-5 的数字</li>
+                      <li>• 重温日期字段：YYYY-MM-DD 格式的日期</li>
                     </ul>
                   </div>
                   <label className="block">
@@ -361,6 +363,8 @@ export const BatchImport = () => {
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">阅读状态</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">备注</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700 w-16">收藏</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700 w-16">评分</th>
+                      <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">重温日期</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">导入策略</th>
                       <th className="px-3 py-2 text-left font-display font-semibold text-gray-700">问题</th>
                     </tr>
@@ -491,6 +495,22 @@ export const BatchImport = () => {
                               <span className="text-red-500">❤️</span>
                             ) : (
                               <span className="text-gray-300">🤍</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {(entry.rating ?? 0) > 0 ? (
+                              <span className="text-amber-500">{'⭐'.repeat(entry.rating ?? 0)}</span>
+                            ) : (
+                              <span className="text-gray-400 italic text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {entry.revisitDate ? (
+                              <span className="text-purple-600">
+                                {new Date(entry.revisitDate).toLocaleDateString('zh-CN')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic text-xs">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">

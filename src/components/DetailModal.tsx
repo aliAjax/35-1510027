@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Heart, ExternalLink, Edit2, Trash2, BookOpen, User, Calendar, Tag, FileText, CalendarPlus, BookCheck, ChevronDown } from 'lucide-react';
+import { X, Heart, ExternalLink, Edit2, Trash2, BookOpen, User, Calendar, Tag, FileText, CalendarPlus, BookCheck, ChevronDown, Star, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS, READ_STATUSES } from '../types';
-import type { ReadStatus } from '../types';
+import type { ReadStatus, Rating } from '../types';
 
 export const DetailModal = () => {
   const isDetailOpen = useEntryStore((s) => s.isDetailOpen);
@@ -13,6 +13,7 @@ export const DetailModal = () => {
   const closeDetail = useEntryStore((s) => s.closeDetail);
   const toggleFavorite = useEntryStore((s) => s.toggleFavorite);
   const updateReadStatus = useEntryStore((s) => s.updateReadStatus);
+  const updateEntry = useEntryStore((s) => s.updateEntry);
   const openForm = useEntryStore((s) => s.openForm);
   const deleteEntry = useEntryStore((s) => s.deleteEntry);
   const customTags = useEntryStore((s) => s.customTags);
@@ -55,6 +56,19 @@ export const DetailModal = () => {
   const handleReadStatusChange = (status: ReadStatus) => {
     updateReadStatus(detailEntry.id, status);
     setReadStatusDropdown(false);
+  };
+
+  const handleRatingChange = (rating: Rating) => {
+    updateEntry(detailEntry.id, { rating });
+  };
+
+  const handleRevisitDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      const date = new Date(e.target.value);
+      updateEntry(detailEntry.id, { revisitDate: date.getTime() });
+    } else {
+      updateEntry(detailEntry.id, { revisitDate: null });
+    }
   };
 
   const handleTogglePlan = () => {
@@ -226,6 +240,50 @@ export const DetailModal = () => {
               </div>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <Star size={14} />
+                <span className="font-display font-medium">评分</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRatingChange(star as Rating)}
+                    className={`p-0.5 transition-all hover:scale-110 ${
+                      (detailEntry.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-300'
+                    }`}
+                  >
+                    <Star size={20} fill={(detailEntry.rating ?? 0) >= star ? 'currentColor' : 'none'} />
+                  </button>
+                ))}
+                {(detailEntry.rating ?? 0) > 0 && (
+                  <button
+                    onClick={() => handleRatingChange(0)}
+                    className="ml-2 px-2 py-0.5 text-xs rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                  >
+                    清除
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <Clock size={14} />
+                <span className="font-display font-medium">重温日期</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={detailEntry.revisitDate ? new Date(detailEntry.revisitDate).toISOString().split('T')[0] : ''}
+                  onChange={handleRevisitDateChange}
+                  className="input-field text-sm py-1.5"
+                />
+              </div>
+            </div>
+          </div>
 
           {detailEntry.author && (
             <div className="mb-5">

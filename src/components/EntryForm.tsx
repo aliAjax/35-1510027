@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Tags } from 'lucide-react';
+import { X, Tags, Star, Calendar, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
   ENTRY_TYPES,
@@ -10,7 +10,7 @@ import {
   TAG_COLORS,
   CUSTOM_TAG_COLORS,
 } from '../types';
-import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
+import type { EntryType, CompletionStatus, ReadStatus, FlavorTag, Rating } from '../types';
 import { AutocompleteInput } from './AutocompleteInput';
 
 interface FormData {
@@ -25,6 +25,8 @@ interface FormData {
   readStatus: ReadStatus;
   notes: string;
   favorite: boolean;
+  rating: Rating;
+  revisitDate: number | null;
 }
 
 const defaultFormData: FormData = {
@@ -39,6 +41,8 @@ const defaultFormData: FormData = {
   readStatus: '未读',
   notes: '',
   favorite: false,
+  rating: 0,
+  revisitDate: null,
 };
 
 export const EntryForm = () => {
@@ -67,6 +71,8 @@ export const EntryForm = () => {
           readStatus: editingEntry.readStatus,
           notes: editingEntry.notes,
           favorite: editingEntry.favorite,
+          rating: editingEntry.rating ?? 0,
+          revisitDate: editingEntry.revisitDate ?? null,
         });
       } else {
         setFormData(defaultFormData);
@@ -315,6 +321,71 @@ export const EntryForm = () => {
                   </button>
                 ))
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-display font-semibold text-gray-700 mb-1.5">
+                <Star size={14} className="inline mr-1" />
+                评分
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, rating: star as Rating })}
+                    className={`p-1 transition-all hover:scale-110 ${
+                      formData.rating >= star ? 'text-amber-400' : 'text-gray-300'
+                    }`}
+                  >
+                    <Star size={24} fill={formData.rating >= star ? 'currentColor' : 'none'} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, rating: 0 })}
+                  className={`ml-2 px-2 py-1 text-xs rounded-lg transition-all ${
+                    formData.rating === 0
+                      ? 'bg-gray-200 text-gray-700'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  清除
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-display font-semibold text-gray-700 mb-1.5">
+                <Clock size={14} className="inline mr-1" />
+                重温日期
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={formData.revisitDate ? new Date(formData.revisitDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const date = new Date(e.target.value);
+                      setFormData({ ...formData, revisitDate: date.getTime() });
+                    } else {
+                      setFormData({ ...formData, revisitDate: null });
+                    }
+                  }}
+                  className="input-field flex-1"
+                />
+                {formData.revisitDate && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, revisitDate: null })}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">记录想要重温的日期</p>
             </div>
           </div>
 

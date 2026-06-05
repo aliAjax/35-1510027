@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, ExternalLink, Edit2, Trash2, BookOpen } from 'lucide-react';
+import { Heart, ExternalLink, Edit2, Trash2, BookOpen, Star, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { TYPE_COLORS, STATUS_COLORS, READ_STATUS_COLORS, TAG_COLORS, CUSTOM_TAG_COLORS } from '../types';
 import type { Entry } from '../types';
@@ -154,6 +154,27 @@ export const EntryCard = ({ entry, index }: EntryCardProps) => {
             ))}
           </div>
         )}
+
+        <div className="flex items-center gap-4 mb-2">
+          {(entry.rating ?? 0) > 0 && (
+            <div className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  size={14}
+                  className={(entry.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-200'}
+                  fill={(entry.rating ?? 0) >= star ? 'currentColor' : 'none'}
+                />
+              ))}
+            </div>
+          )}
+          {entry.revisitDate && (
+            <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+              <Clock size={12} />
+              <span>{new Date(entry.revisitDate).toLocaleDateString('zh-CN')}</span>
+            </div>
+          )}
+        </div>
 
         {entry.author && (
           <div className="text-sm text-gray-500 mb-2">

@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, Heart, Tags, Calendar, X } from 'lucide-react';
+import { Filter, RotateCcw, Heart, Tags, Calendar, X, Star, Clock } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import { FilterFavorites } from './FilterFavorites';
 import {
@@ -11,7 +11,7 @@ import {
   TAG_COLORS,
   CUSTOM_TAG_COLORS,
 } from '../types';
-import type { EntryType, CompletionStatus, ReadStatus, FlavorTag } from '../types';
+import type { EntryType, CompletionStatus, ReadStatus, FlavorTag, RatingFilter } from '../types';
 
 export const FilterPanel = () => {
   const { filters, setFilters, resetFilters, getUniqueCpNames, customTags, openTagManager } = useEntryStore();
@@ -25,6 +25,10 @@ export const FilterPanel = () => {
     filters.customTags.length > 0 ||
     filters.readStatus !== 'all' ||
     filters.favoriteOnly ||
+    filters.rating !== 'all' ||
+    filters.hasRevisitDate !== 'all' ||
+    filters.revisitDateFrom !== null ||
+    filters.revisitDateTo !== null ||
     filters.searchKeyword ||
     filters.dateFrom !== null ||
     filters.dateTo !== null;
@@ -278,6 +282,132 @@ export const FilterPanel = () => {
               <Heart size={12} fill={filters.favoriteOnly ? 'currentColor' : 'none'} />
               仅看收藏
             </button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-xs font-display font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <Star size={12} className="inline mr-1" />
+            评分
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilters({ rating: 'all' })}
+              className={`btn-tag text-xs ${
+                filters.rating === 'all'
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setFilters({ rating: 'rated' })}
+              className={`btn-tag text-xs ${
+                filters.rating === 'rated'
+                  ? 'bg-amber-100 text-amber-700 shadow-md border-amber-300'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              已评分
+            </button>
+            <button
+              onClick={() => setFilters({ rating: 'unrated' })}
+              className={`btn-tag text-xs ${
+                filters.rating === 'unrated'
+                  ? 'bg-gray-200 text-gray-700 shadow-md'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              未评分
+            </button>
+            {[5, 4, 3, 2, 1].map((star) => (
+              <button
+                key={star}
+                onClick={() =>
+                  setFilters({
+                    rating: (filters.rating === star ? 'all' : star) as RatingFilter,
+                  })
+                }
+                className={`btn-tag text-xs ${
+                  filters.rating === star
+                    ? 'bg-amber-100 text-amber-700 shadow-md border-amber-300'
+                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {'⭐'.repeat(star)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-xs font-display font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <Clock size={12} className="inline mr-1" />
+            重温日期
+          </label>
+          <div className="flex flex-wrap gap-2 items-center">
+            <button
+              onClick={() => setFilters({ hasRevisitDate: 'all' })}
+              className={`btn-tag text-xs ${
+                filters.hasRevisitDate === 'all'
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setFilters({ hasRevisitDate: filters.hasRevisitDate === true ? 'all' : true })}
+              className={`btn-tag text-xs ${
+                filters.hasRevisitDate === true
+                  ? 'bg-purple-100 text-purple-700 shadow-md border-purple-300'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              有重温计划
+            </button>
+            <button
+              onClick={() => setFilters({ hasRevisitDate: filters.hasRevisitDate === false ? 'all' : false })}
+              className={`btn-tag text-xs ${
+                filters.hasRevisitDate === false
+                  ? 'bg-gray-200 text-gray-700 shadow-md'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              无重温计划
+            </button>
+            <div className="flex items-center gap-1 ml-2">
+              <input
+                type="date"
+                value={filters.revisitDateFrom ? new Date(filters.revisitDateFrom).toISOString().split('T')[0] : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const date = new Date(e.target.value);
+                    setFilters({ revisitDateFrom: date.getTime() });
+                  } else {
+                    setFilters({ revisitDateFrom: null });
+                  }
+                }}
+                className="input-field text-xs py-1 w-32"
+                placeholder="开始日期"
+              />
+              <span className="text-gray-400">~</span>
+              <input
+                type="date"
+                value={filters.revisitDateTo ? new Date(filters.revisitDateTo).toISOString().split('T')[0] : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const date = new Date(e.target.value);
+                    setFilters({ revisitDateTo: date.getTime() });
+                  } else {
+                    setFilters({ revisitDateTo: null });
+                  }
+                }}
+                className="input-field text-xs py-1 w-32"
+                placeholder="结束日期"
+              />
+            </div>
           </div>
         </div>
 

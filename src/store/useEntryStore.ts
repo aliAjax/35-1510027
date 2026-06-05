@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption, ImportStrategy, DuplicateMatch } from '../types';
+import type { Entry, EntryStore, FilterState, BackupData, ImportResult, EntryType, ReadStatus, FlavorTag, ParsedBatchEntry, BatchImportResult, CompletionStatus, CustomTag, ReadingPlanItem, DuplicateGroup, KanbanViewMode, FilterFavorite, LinkAnalysisResult, LinkInfo, LinkDomainGroup, LinkIssue, DataAnalysisResult, CpDistributionItem, WorkDistributionItem, TypeDistributionItem, ReadStatusDistributionItem, TrendDataItem, SortOption, ImportStrategy, DuplicateMatch, Rating, RatingDistributionItem } from '../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../types';
 import { migrateData, CURRENT_SCHEMA_VERSION, type PersistedState } from '../utils/dataMigration';
 
@@ -16,6 +16,10 @@ const defaultFilters: FilterState = {
   customTags: [],
   readStatus: 'all',
   favoriteOnly: false,
+  rating: 'all',
+  revisitDateFrom: null,
+  revisitDateTo: null,
+  hasRevisitDate: 'all',
   searchKeyword: '',
   dateFrom: null,
   dateTo: null,
@@ -195,6 +199,7 @@ export const useEntryStore = create<EntryStore>()(
         const validReadStatuses = new Set<string>(READ_STATUSES);
         const validCpNames = new Set(entries.map((e) => e.cpName));
 
+        const validRatingFilters = ['all', 'rated', 'unrated', 0, 1, 2, 3, 4, 5];
         const appliedFilters: FilterState = {
           ...defaultFilters,
           ...favorite.filters,
@@ -209,6 +214,14 @@ export const useEntryStore = create<EntryStore>()(
           readStatus: (favorite.filters.readStatus || 'all') === 'all' || validReadStatuses.has(favorite.filters.readStatus)
             ? favorite.filters.readStatus || 'all'
             : 'all',
+          rating: validRatingFilters.includes(favorite.filters.rating as string | number)
+            ? favorite.filters.rating || 'all'
+            : 'all',
+          hasRevisitDate: favorite.filters.hasRevisitDate === true || favorite.filters.hasRevisitDate === false || favorite.filters.hasRevisitDate === 'all'
+            ? favorite.filters.hasRevisitDate
+            : 'all',
+          revisitDateFrom: favorite.filters.revisitDateFrom ?? null,
+          revisitDateTo: favorite.filters.revisitDateTo ?? null,
           cpName: validCpNames.has(favorite.filters.cpName)
             ? favorite.filters.cpName
             : '',
@@ -473,6 +486,18 @@ export const useEntryStore = create<EntryStore>()(
           if (filters.status !== 'all' && entry.status !== filters.status) return false;
           if (filters.readStatus !== 'all' && entry.readStatus !== filters.readStatus) return false;
           if (filters.favoriteOnly && !entry.favorite) return false;
+          if (filters.rating !== 'all') {
+            if (filters.rating === 'rated' && (entry.rating === 0 || entry.rating === undefined)) return false;
+            if (filters.rating === 'unrated' && entry.rating !== 0 && entry.rating !== undefined) return false;
+            if (typeof filters.rating === 'number' && entry.rating !== filters.rating) return false;
+          }
+          if (filters.hasRevisitDate !== 'all') {
+            const hasDate = entry.revisitDate !== null && entry.revisitDate !== undefined;
+            if (filters.hasRevisitDate === true && !hasDate) return false;
+            if (filters.hasRevisitDate === false && hasDate) return false;
+          }
+          if (filters.revisitDateFrom !== null && (!entry.revisitDate || entry.revisitDate < filters.revisitDateFrom)) return false;
+          if (filters.revisitDateTo !== null && (!entry.revisitDate || entry.revisitDate > filters.revisitDateTo)) return false;
           if (filters.dateFrom !== null && entry.createdAt < filters.dateFrom) return false;
           if (filters.dateTo !== null && entry.createdAt > filters.dateTo) return false;
           if (filters.tags.length > 0) {
@@ -705,6 +730,10 @@ export const useEntryStore = create<EntryStore>()(
             customTags: rawFilters.customTags as string[],
             readStatus: rawFilters.readStatus as ReadStatus | 'all',
             favoriteOnly: rawFilters.favoriteOnly as boolean,
+            rating: (rawFilters.rating as any) ?? 'all',
+            revisitDateFrom: (rawFilters.revisitDateFrom as number | null) ?? null,
+            revisitDateTo: (rawFilters.revisitDateTo as number | null) ?? null,
+            hasRevisitDate: (rawFilters.hasRevisitDate as boolean | 'all') ?? 'all',
             searchKeyword: rawFilters.searchKeyword as string,
             dateFrom: (rawFilters.dateFrom as number | null) ?? null,
             dateTo: (rawFilters.dateTo as number | null) ?? null,
@@ -846,6 +875,13 @@ export const useEntryStore = create<EntryStore>()(
           if (typeof entry.favorite !== 'boolean') {
             warnings.push(`${label}收藏标记格式错误`);
           }
+          const rawEntry = entry as unknown as Record<string, unknown>;
+          if (rawEntry.rating !== undefined && (typeof rawEntry.rating !== 'number' || rawEntry.rating < 0 || rawEntry.rating > 5)) {
+            warnings.push(`${label}评分格式错误`);
+          }
+          if (rawEntry.revisitDate !== undefined && rawEntry.revisitDate !== null && (typeof rawEntry.revisitDate !== 'number' || rawEntry.revisitDate <= 0)) {
+            warnings.push(`${label}重温日期格式错误`);
+          }
           if (typeof entry.createdAt !== 'number' || entry.createdAt <= 0) {
             warnings.push(`${label}创建时间格式错误`);
           }
@@ -958,6 +994,8 @@ export const useEntryStore = create<EntryStore>()(
                 readStatus: entry.readStatus,
                 notes: entry.notes,
                 favorite: entry.favorite,
+                rating: entry.rating,
+                revisitDate: entry.revisitDate,
                 updatedAt: now,
               },
             });
@@ -967,6 +1005,8 @@ export const useEntryStore = create<EntryStore>()(
             const mergedCustomTags = Array.from(new Set([...existing.customTags, ...entry.customTags]));
             const mergedNotes = [existing.notes, entry.notes].filter(Boolean).join('\n\n---\n\n');
             const mergedFavorite = existing.favorite || entry.favorite;
+            const mergedRating = entry.rating > 0 ? entry.rating : existing.rating;
+            const mergedRevisitDate = entry.revisitDate || existing.revisitDate;
 
             toUpdate.push({
               id: existing.id,
@@ -975,6 +1015,8 @@ export const useEntryStore = create<EntryStore>()(
                 customTags: mergedCustomTags,
                 notes: mergedNotes,
                 favorite: mergedFavorite,
+                rating: mergedRating,
+                revisitDate: mergedRevisitDate,
                 updatedAt: now,
               },
             });
@@ -992,6 +1034,8 @@ export const useEntryStore = create<EntryStore>()(
               readStatus: entry.readStatus,
               notes: entry.notes,
               favorite: entry.favorite,
+              rating: entry.rating,
+              revisitDate: entry.revisitDate,
               createdAt: now - entryIndex,
               updatedAt: now,
             });
@@ -1189,6 +1233,28 @@ export const useEntryStore = create<EntryStore>()(
 
           const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
 
+          let rating: Rating = 0;
+          const ratingStr = normalizeValue(row[11] || '');
+          if (ratingStr) {
+            const ratingNum = parseInt(ratingStr, 10);
+            if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) {
+              rating = ratingNum as Rating;
+            } else if (ratingStr !== '0' && ratingStr !== '') {
+              warnings.push(`评分"${ratingStr}"不合法，应为1-5的数字，已设为未评分`);
+            }
+          }
+
+          let revisitDate: number | null = null;
+          const revisitDateStr = normalizeValue(row[12] || '');
+          if (revisitDateStr) {
+            const parsedDate = new Date(revisitDateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              revisitDate = parsedDate.getTime();
+            } else {
+              warnings.push(`重温日期"${revisitDateStr}"格式错误，已忽略`);
+            }
+          }
+
           const isValid = errors.length === 0;
           const duplicates = isValid ? checkForDuplicates({ workName, cpName, link, author }) : [];
 
@@ -1205,6 +1271,8 @@ export const useEntryStore = create<EntryStore>()(
             readStatus,
             notes,
             favorite,
+            rating,
+            revisitDate,
             isValid,
             errors,
             warnings,
@@ -1363,6 +1431,28 @@ export const useEntryStore = create<EntryStore>()(
 
           const favorite = favoriteStr === 'true' || favoriteStr === '是' || favoriteStr === 'yes' || favoriteStr === '1';
 
+          let rating: Rating = 0;
+          const ratingStr = normalizeValue(row[11] || '');
+          if (ratingStr) {
+            const ratingNum = parseInt(ratingStr, 10);
+            if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) {
+              rating = ratingNum as Rating;
+            } else if (ratingStr !== '0' && ratingStr !== '') {
+              warnings.push(`评分"${ratingStr}"不合法，应为1-5的数字，已设为未评分`);
+            }
+          }
+
+          let revisitDate: number | null = null;
+          const revisitDateStr = normalizeValue(row[12] || '');
+          if (revisitDateStr) {
+            const parsedDate = new Date(revisitDateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              revisitDate = parsedDate.getTime();
+            } else {
+              warnings.push(`重温日期"${revisitDateStr}"格式错误，已忽略`);
+            }
+          }
+
           const isValid = errors.length === 0;
           const duplicates = isValid ? checkForDuplicates({ workName, cpName, link, author }) : [];
 
@@ -1379,6 +1469,8 @@ export const useEntryStore = create<EntryStore>()(
             readStatus,
             notes,
             favorite,
+            rating,
+            revisitDate,
             isValid,
             errors,
             warnings,
@@ -1630,6 +1722,11 @@ export const useEntryStore = create<EntryStore>()(
             workDistribution: [],
             typeDistribution: [],
             readStatusDistribution: [],
+            ratingDistribution: [],
+            ratedCount: 0,
+            ratedPercentage: 0,
+            revisitDateCount: 0,
+            revisitDatePercentage: 0,
             favoriteCount: 0,
             favoritePercentage: 0,
             trendData: [],
@@ -1641,7 +1738,10 @@ export const useEntryStore = create<EntryStore>()(
         const workCount = new Map<string, { cpName: string; type: EntryType; count: number }>();
         const typeCount = new Map<EntryType, number>();
         const readStatusCount = new Map<ReadStatus, number>();
+        const ratingCount = new Map<number, number>();
         let favoriteCount = 0;
+        let ratedCount = 0;
+        let revisitDateCount = 0;
 
         const dailyCount = new Map<number, { dateStr: string; count: number }>();
         const now = Date.now();
@@ -1663,7 +1763,11 @@ export const useEntryStore = create<EntryStore>()(
           }
           typeCount.set(entry.type, (typeCount.get(entry.type) || 0) + 1);
           readStatusCount.set(entry.readStatus, (readStatusCount.get(entry.readStatus) || 0) + 1);
+          const rating = entry.rating ?? 0;
+          ratingCount.set(rating, (ratingCount.get(rating) || 0) + 1);
+          if (rating > 0) ratedCount++;
           if (entry.favorite) favoriteCount++;
+          if (entry.revisitDate) revisitDateCount++;
 
           const entryDate = new Date(entry.createdAt);
           const dayStart = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()).getTime();
@@ -1704,6 +1808,21 @@ export const useEntryStore = create<EntryStore>()(
           percentage: Math.round(((readStatusCount.get(status) || 0) / totalEntries) * 100),
         }));
 
+        const ratingLabels: Record<number, string> = {
+          0: '未评分',
+          1: '⭐ 1星',
+          2: '⭐⭐ 2星',
+          3: '⭐⭐⭐ 3星',
+          4: '⭐⭐⭐⭐ 4星',
+          5: '⭐⭐⭐⭐⭐ 5星',
+        };
+        const ratingDistribution: RatingDistributionItem[] = [0, 1, 2, 3, 4, 5].map((rating) => ({
+          rating: rating as Rating,
+          count: ratingCount.get(rating) || 0,
+          percentage: Math.round(((ratingCount.get(rating) || 0) / totalEntries) * 100),
+          label: ratingLabels[rating],
+        }));
+
         const trendData: TrendDataItem[] = Array.from(dailyCount.entries())
           .map(([timestamp, { dateStr, count }]) => ({
             date: dateStr,
@@ -1718,6 +1837,11 @@ export const useEntryStore = create<EntryStore>()(
           workDistribution,
           typeDistribution,
           readStatusDistribution,
+          ratingDistribution,
+          ratedCount,
+          ratedPercentage: Math.round((ratedCount / totalEntries) * 100),
+          revisitDateCount,
+          revisitDatePercentage: Math.round((revisitDateCount / totalEntries) * 100),
           favoriteCount,
           favoritePercentage: Math.round((favoriteCount / totalEntries) * 100),
           trendData,
