@@ -190,9 +190,16 @@ export const LinkManager = () => {
     }
   };
 
+  const selectedInvalidLinks = useMemo(() => {
+    return analysisResult.allLinks.filter(
+      (link) => selectedLinks.has(link.entryId) && link.hasIssue
+    );
+  }, [analysisResult.allLinks, selectedLinks]);
+
   const handleBatchClearLinks = () => {
-    if (selectedLinks.size > 0) {
-      batchClearEmptyLinks(Array.from(selectedLinks));
+    if (selectedInvalidLinks.length > 0) {
+      const idsToClear = selectedInvalidLinks.map((l) => l.entryId);
+      batchClearEmptyLinks(idsToClear);
       setSelectedLinks(new Set());
     }
   };
@@ -535,10 +542,15 @@ export const LinkManager = () => {
                 </button>
                 <button
                   onClick={handleBatchClearLinks}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors font-display"
+                  disabled={selectedInvalidLinks.length === 0}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-display transition-colors ${
+                    selectedInvalidLinks.length > 0
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
                 >
                   <Trash2 size={14} />
-                  批量清空链接
+                  批量清空无效链接 ({selectedInvalidLinks.length})
                 </button>
               </div>
             </div>
