@@ -209,11 +209,11 @@ export const KanbanView = () => {
     e.preventDefault();
     const entryId = e.dataTransfer.getData('text/plain');
     const sourceStatus = e.dataTransfer.getData('application/x-entry-status') as ReadStatus;
-    
+
     if (entryId && sourceStatus !== targetStatus) {
       updateReadStatus(entryId, targetStatus);
     }
-    
+
     setDraggingEntryId(null);
     setDragOverColumn(null);
   };
@@ -276,7 +276,7 @@ export const KanbanView = () => {
           <div className="hidden sm:flex flex-col items-center justify-start pt-0.5 text-gray-300 group-hover:text-primary-300 transition-colors flex-shrink-0">
             <GripVertical size={14} />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
               {kanbanViewMode !== 'work' && (
@@ -351,7 +351,7 @@ export const KanbanView = () => {
             >
               <Heart size={14} fill={entry.favorite ? 'currentColor' : 'none'} />
             </button>
-            
+
             {kanbanViewMode === 'readStatus' ? (
               <button
                 onClick={(e) => toggleMobileMenu(e, entry)}
@@ -368,7 +368,7 @@ export const KanbanView = () => {
                 <Edit2 size={14} />
               </button>
             )}
-            
+
             {kanbanViewMode === 'readStatus' && (
               <button
                 onClick={(e) => handleEdit(e, entry)}
@@ -419,7 +419,7 @@ export const KanbanView = () => {
       <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-1 px-1 sm:mx-0 sm:px-0">
         {columns.map(({ status, entries: columnEntries }) => {
           const isDragOver = dragOverColumn === status;
-          
+
           return (
             <div
               key={status}
@@ -441,7 +441,7 @@ export const KanbanView = () => {
                   {columnEntries.length}
                 </span>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[60vh] sm:max-h-[65vh]">
                 {columnEntries.length === 0 ? (
                   <div className="py-8 text-center">
