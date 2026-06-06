@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   X,
   ChevronDown,
@@ -13,6 +13,8 @@ import {
   Layers,
   ChevronsDown,
   ChevronsUp,
+  GripVertical,
+  MoveRight,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import {
@@ -22,8 +24,9 @@ import {
   TAG_COLORS,
   CUSTOM_TAG_COLORS,
   ENTRY_TYPES,
+  READ_STATUSES,
 } from '../types';
-import type { Entry, KanbanViewMode } from '../types';
+import type { Entry, KanbanViewMode, ReadStatus } from '../types';
 
 const VIEW_MODES: { key: KanbanViewMode; label: string; icon: React.ReactNode }[] = [
   { key: 'cp', label: '按CP分组', icon: <Users size={16} /> },
@@ -37,6 +40,20 @@ const READ_STATUS_ORDER: Record<string, number> = {
   '在读': 1,
   '已读': 2,
   '弃坑': 3,
+};
+
+const READ_STATUS_COLUMN_STYLES: Record<ReadStatus, string> = {
+  '未读': 'border-gray-200 bg-gray-50/50',
+  '在读': 'border-amber-200 bg-amber-50/50',
+  '已读': 'border-emerald-200 bg-emerald-50/50',
+  '弃坑': 'border-red-200 bg-red-50/50',
+};
+
+const READ_STATUS_DRAG_OVER_STYLES: Record<ReadStatus, string> = {
+  '未读': 'ring-2 ring-gray-400 ring-inset bg-gray-100/50',
+  '在读': 'ring-2 ring-amber-400 ring-inset bg-amber-100/50',
+  '已读': 'ring-2 ring-emerald-400 ring-inset bg-emerald-100/50',
+  '弃坑': 'ring-2 ring-red-400 ring-inset bg-red-100/50',
 };
 
 export const KanbanView = () => {
@@ -56,9 +73,14 @@ export const KanbanView = () => {
     openForm,
     openDetail,
     customTags,
+    updateReadStatus,
   } = useEntryStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
+  const [dragOverColumn, setDragOverColumn] = useState<ReadStatus | null>(null);
+  const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
+  const [mobileMenuEntry, setMobileMenuEntry] = useState<Entry | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const filteredEntries = useMemo(
     () => getFilteredEntries(),
@@ -150,7 +172,60 @@ export const KanbanView = () => {
   };
 
   const handleDetail = (entry: Entry) => {
+    if (mobileMenuEntry) {
+      setMobileMenuEntry(null);
+      return;
+    }
     openDetail(entry);
+  };
+
+  const handleDragStart = (e: React.DragEvent, entry: Entry) => {
+    setDraggingEntryId(entry.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', entry.id);
+    e.dataTransfer.setData('application/x-entry-status', entry.readStatus);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingEntryId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: ReadStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== status) {
+      setDragOverColumn(status);
+    }
+  };
+
+  const handleDragLeave = (status: ReadStatus) => {
+    if (dragOverColumn === status) {
+      setDragOverColumn(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStatus: ReadStatus) => {
+    e.preventDefault();
+    const entryId = e.dataTransfer.getData('text/plain');
+    const sourceStatus = e.dataTransfer.getData('application/x-entry-status') as ReadStatus;
+    
+    if (entryId && sourceStatus !== targetStatus) {
+      updateReadStatus(entryId, targetStatus);
+    }
+    
+    setDraggingEntryId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleMobileStatusChange = (entryId: string, newStatus: ReadStatus) => {
+    updateReadStatus(entryId, newStatus);
+    setMobileMenuEntry(null);
+  };
+
+  const toggleMobileMenu = (e: React.MouseEvent, entry: Entry) => {
+    e.stopPropagation();
+    setMobileMenuEntry(mobileMenuEntry?.id === entry.id ? null : entry);
   };
 
   const getGroupIcon = (key: string) => {
@@ -179,6 +254,255 @@ export const KanbanView = () => {
         return null;
     }
   };
+
+  const renderEntryCard = (entry: Entry, compact: boolean = false) => {
+    const entryCustomTags = customTags.filter((tag) =>
+      entry.customTags?.includes(tag.id)
+    );
+    const isDragging = draggingEntryId === entry.id;
+
+    return (
+      <div
+        key={entry.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, entry)}
+        onDragEnd={handleDragEnd}
+        className={`rounded-lg border border-gray-100 bg-white/80 p-3 hover:border-primary-200 hover:shadow-soft transition-all cursor-grab active:cursor-grabbing group select-none ${
+          isDragging ? 'opacity-50 scale-95' : ''
+        }`}
+        onClick={() => handleDetail(entry)}
+      >
+        <div className="flex items-start gap-2">
+          <div className="hidden sm:flex flex-col items-center justify-start pt-0.5 text-gray-300 group-hover:text-primary-300 transition-colors flex-shrink-0">
+            <GripVertical size={14} />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              {kanbanViewMode !== 'work' && (
+                <h5 className="font-display font-bold text-gray-800 text-sm truncate">
+                  {entry.workName}
+                </h5>
+              )}
+              {kanbanViewMode !== 'cp' && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <BookOpen size={11} className="text-primary-400" />
+                  <span className="font-display text-primary-600 text-xs font-medium truncate max-w-[80px]">
+                    {entry.cpName}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {kanbanViewMode === 'work' && (
+              <div className="flex items-center gap-1 mb-1">
+                <BookOpen size={11} className="text-primary-400" />
+                <span className="font-display text-primary-600 text-xs font-medium truncate">
+                  {entry.cpName}
+                </span>
+              </div>
+            )}
+
+            {!compact && (
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {kanbanViewMode !== 'type' && (
+                  <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${TYPE_COLORS[entry.type]}`}>
+                    {entry.type}
+                  </span>
+                )}
+                <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${STATUS_COLORS[entry.status]}`}>
+                  {entry.status}
+                </span>
+                {kanbanViewMode !== 'readStatus' && (
+                  <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${READ_STATUS_COLORS[entry.readStatus]}`}>
+                    {entry.readStatus}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {!compact && (
+              <div className="flex flex-wrap gap-1">
+                {entry.tags.slice(0, 3).map((tag) => (
+                  <span key={tag} className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${TAG_COLORS[tag]}`}>
+                    {tag}
+                  </span>
+                ))}
+                {entryCustomTags.slice(0, 2).map((tag) => (
+                  <span
+                    key={tag.id}
+                    className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'}`}
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            <button
+              onClick={(e) => handleFavorite(e, entry.id)}
+              className={`p-1.5 rounded-lg transition-all ${
+                entry.favorite
+                  ? 'text-accent-peach hover:bg-accent-peach/10'
+                  : 'text-gray-300 hover:text-accent-peach hover:bg-accent-peach/5'
+              }`}
+            >
+              <Heart size={14} fill={entry.favorite ? 'currentColor' : 'none'} />
+            </button>
+            
+            {kanbanViewMode === 'readStatus' ? (
+              <button
+                onClick={(e) => toggleMobileMenu(e, entry)}
+                className="sm:hidden p-1.5 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
+                title="移动到..."
+              >
+                <MoveRight size={14} />
+              </button>
+            ) : (
+              <button
+                onClick={(e) => handleEdit(e, entry)}
+                className="p-1.5 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
+              >
+                <Edit2 size={14} />
+              </button>
+            )}
+            
+            {kanbanViewMode === 'readStatus' && (
+              <button
+                onClick={(e) => handleEdit(e, entry)}
+                className="hidden sm:flex p-1.5 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
+              >
+                <Edit2 size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {kanbanViewMode === 'readStatus' && mobileMenuEntry?.id === entry.id && (
+          <div
+            ref={mobileMenuRef}
+            className="mt-2 pt-2 border-t border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs text-gray-500 mb-1.5 font-display">移动到：</p>
+            <div className="flex flex-wrap gap-1">
+              {READ_STATUSES.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleMobileStatusChange(entry.id, status)}
+                  disabled={entry.readStatus === status}
+                  className={`text-xs px-2 py-1 rounded-md font-display transition-all ${
+                    entry.readStatus === status
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : `${READ_STATUS_COLORS[status]} hover:opacity-80`
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderKanbanColumns = () => {
+    const columns = READ_STATUSES.map((status) => ({
+      status,
+      entries: grouped.get(status) || [],
+    }));
+
+    return (
+      <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-1 px-1 sm:mx-0 sm:px-0">
+        {columns.map(({ status, entries: columnEntries }) => {
+          const isDragOver = dragOverColumn === status;
+          
+          return (
+            <div
+              key={status}
+              onDragOver={(e) => handleDragOver(e, status)}
+              onDragLeave={() => handleDragLeave(status)}
+              onDrop={(e) => handleDrop(e, status)}
+              className={`flex-shrink-0 w-64 sm:w-72 rounded-xl border-2 overflow-hidden flex flex-col transition-all ${
+                READ_STATUS_COLUMN_STYLES[status]
+              } ${isDragOver ? READ_STATUS_DRAG_OVER_STYLES[status] : ''}`}
+            >
+              <div className="px-3 py-2.5 border-b border-current/10 flex items-center gap-2">
+                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${READ_STATUS_COLORS[status]}`}>
+                  {status.charAt(0)}
+                </span>
+                <span className="font-display font-bold text-gray-800 text-sm flex-1">
+                  {status}
+                </span>
+                <span className="text-xs font-display font-medium text-gray-500 bg-white/60 px-2 py-0.5 rounded-full">
+                  {columnEntries.length}
+                </span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[60vh] sm:max-h-[65vh]">
+                {columnEntries.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-xs text-gray-400 font-display">
+                      拖拽卡片到这里
+                    </p>
+                  </div>
+                ) : (
+                  columnEntries.map((entry) => renderEntryCard(entry, true))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderCollapsibleGroups = () => (
+    <div className="space-y-3">
+      {sortedGroupKeys.map((groupKey) => {
+        const groupEntries = grouped.get(groupKey)!;
+        const isExpanded = expandedKanbanGroups[groupKey] !== false;
+
+        return (
+          <div
+            key={groupKey}
+            className="rounded-xl border border-primary-100/60 bg-white/50 overflow-hidden"
+          >
+            <button
+              onClick={() => toggleKanbanGroup(groupKey)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-50/50 transition-colors text-left"
+            >
+              {isExpanded ? (
+                <ChevronDown size={16} className="text-primary-400 flex-shrink-0" />
+              ) : (
+                <ChevronRight size={16} className="text-primary-400 flex-shrink-0" />
+              )}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {getGroupIcon(groupKey)}
+                <span className="font-display font-bold text-gray-800 truncate">
+                  {groupKey}
+                </span>
+              </div>
+              <span className="flex-shrink-0 text-xs font-display font-medium text-primary-500 bg-primary-50 px-2.5 py-0.5 rounded-full">
+                {groupEntries.length}
+              </span>
+            </button>
+
+            {isExpanded && (
+              <div className="border-t border-primary-50 px-3 sm:px-4 pb-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {groupEntries.map((entry) => renderEntryCard(entry))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -232,19 +556,21 @@ export const KanbanView = () => {
                   <span className="text-gray-400"> / 共 {entries.length} 条</span>
                 )}
               </span>
-              <button
-                onClick={allExpanded ? () => collapseAllKanbanGroups(sortedGroupKeys) : handleExpandAll}
-                className="flex items-center gap-1 text-xs font-display font-medium text-primary-600 hover:text-primary-700 transition-colors"
-                title={allExpanded ? '全部折叠' : '全部展开'}
-              >
-                {allExpanded ? <ChevronsUp size={14} /> : <ChevronsDown size={14} />}
-                <span className="hidden sm:inline">{allExpanded ? '全部折叠' : '全部展开'}</span>
-              </button>
+              {kanbanViewMode !== 'readStatus' && (
+                <button
+                  onClick={allExpanded ? () => collapseAllKanbanGroups(sortedGroupKeys) : handleExpandAll}
+                  className="flex items-center gap-1 text-xs font-display font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                  title={allExpanded ? '全部折叠' : '全部展开'}
+                >
+                  {allExpanded ? <ChevronsUp size={14} /> : <ChevronsDown size={14} />}
+                  <span className="hidden sm:inline">{allExpanded ? '全部折叠' : '全部展开'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+        <div className={`p-4 sm:p-6 overflow-y-auto flex-1 ${kanbanViewMode === 'readStatus' ? 'overflow-x-hidden' : ''}`}>
           {filteredEntries.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary-100 flex items-center justify-center text-primary-400">
@@ -254,140 +580,10 @@ export const KanbanView = () => {
                 {entries.length === 0 ? '还没有收藏的粮哦' : '当前筛选条件下没有匹配条目'}
               </p>
             </div>
+          ) : kanbanViewMode === 'readStatus' ? (
+            renderKanbanColumns()
           ) : (
-            <div className="space-y-3">
-              {sortedGroupKeys.map((groupKey) => {
-                const groupEntries = grouped.get(groupKey)!;
-                const isExpanded = expandedKanbanGroups[groupKey] !== false;
-
-                return (
-                  <div
-                    key={groupKey}
-                    className="rounded-xl border border-primary-100/60 bg-white/50 overflow-hidden"
-                  >
-                    <button
-                      onClick={() => toggleKanbanGroup(groupKey)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-50/50 transition-colors text-left"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown size={16} className="text-primary-400 flex-shrink-0" />
-                      ) : (
-                        <ChevronRight size={16} className="text-primary-400 flex-shrink-0" />
-                      )}
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {getGroupIcon(groupKey)}
-                        <span className="font-display font-bold text-gray-800 truncate">
-                          {groupKey}
-                        </span>
-                      </div>
-                      <span className="flex-shrink-0 text-xs font-display font-medium text-primary-500 bg-primary-50 px-2.5 py-0.5 rounded-full">
-                        {groupEntries.length}
-                      </span>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-primary-50 px-3 sm:px-4 pb-3 pt-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                          {groupEntries.map((entry) => {
-                            const entryCustomTags = customTags.filter((tag) =>
-                              entry.customTags?.includes(tag.id)
-                            );
-
-                            return (
-                              <div
-                                key={entry.id}
-                                className="rounded-lg border border-gray-100 bg-white/80 p-3 hover:border-primary-200 hover:shadow-soft transition-all cursor-pointer group"
-                                onClick={() => handleDetail(entry)}
-                              >
-                                <div className="flex items-start gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                      {kanbanViewMode !== 'work' && (
-                                        <h5 className="font-display font-bold text-gray-800 text-sm truncate">
-                                          {entry.workName}
-                                        </h5>
-                                      )}
-                                      {kanbanViewMode !== 'cp' && (
-                                        <div className="flex items-center gap-1 flex-shrink-0">
-                                          <BookOpen size={11} className="text-primary-400" />
-                                          <span className="font-display text-primary-600 text-xs font-medium truncate max-w-[80px]">
-                                            {entry.cpName}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {kanbanViewMode === 'work' && (
-                                      <div className="flex items-center gap-1 mb-1">
-                                        <BookOpen size={11} className="text-primary-400" />
-                                        <span className="font-display text-primary-600 text-xs font-medium truncate">
-                                          {entry.cpName}
-                                        </span>
-                                      </div>
-                                    )}
-
-                                    <div className="flex flex-wrap gap-1 mb-1.5">
-                                      {kanbanViewMode !== 'type' && (
-                                        <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${TYPE_COLORS[entry.type]}`}>
-                                          {entry.type}
-                                        </span>
-                                      )}
-                                      <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${STATUS_COLORS[entry.status]}`}>
-                                        {entry.status}
-                                      </span>
-                                      {kanbanViewMode !== 'readStatus' && (
-                                        <span className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${READ_STATUS_COLORS[entry.readStatus]}`}>
-                                          {entry.readStatus}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-1">
-                                      {entry.tags.slice(0, 3).map((tag) => (
-                                        <span key={tag} className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${TAG_COLORS[tag]}`}>
-                                          {tag}
-                                        </span>
-                                      ))}
-                                      {entryCustomTags.slice(0, 2).map((tag) => (
-                                        <span
-                                          key={tag.id}
-                                          className={`btn-tag text-[10px] leading-tight px-1.5 py-0.5 ${CUSTOM_TAG_COLORS[tag.color] || 'bg-gray-100 text-gray-700'}`}
-                                        >
-                                          {tag.name}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex flex-col gap-1 flex-shrink-0">
-                                    <button
-                                      onClick={(e) => handleFavorite(e, entry.id)}
-                                      className={`p-1.5 rounded-lg transition-all ${
-                                        entry.favorite
-                                          ? 'text-accent-peach hover:bg-accent-peach/10'
-                                          : 'text-gray-300 hover:text-accent-peach hover:bg-accent-peach/5'
-                                      }`}
-                                    >
-                                      <Heart size={14} fill={entry.favorite ? 'currentColor' : 'none'} />
-                                    </button>
-                                    <button
-                                      onClick={(e) => handleEdit(e, entry)}
-                                      className="p-1.5 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition-all"
-                                    >
-                                      <Edit2 size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            renderCollapsibleGroups()
           )}
         </div>
       </div>
