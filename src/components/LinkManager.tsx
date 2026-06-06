@@ -103,6 +103,12 @@ export const LinkManager = () => {
       .filter((group) => group.links.length > 0);
   }, [analysisResult, matchFilterType, matchFilterDomain, matchSearch]);
 
+  const selectedInvalidLinks = useMemo(() => {
+    return analysisResult.allLinks.filter(
+      (link) => selectedLinks.has(link.entryId) && link.hasIssue
+    );
+  }, [analysisResult.allLinks, selectedLinks]);
+
   if (!isLinkManagerOpen) return null;
 
   const closeModal = () => {
@@ -189,12 +195,6 @@ export const LinkManager = () => {
       setSelectedLinks(new Set());
     }
   };
-
-  const selectedInvalidLinks = useMemo(() => {
-    return analysisResult.allLinks.filter(
-      (link) => selectedLinks.has(link.entryId) && link.hasIssue
-    );
-  }, [analysisResult.allLinks, selectedLinks]);
 
   const handleBatchClearLinks = () => {
     if (selectedInvalidLinks.length > 0) {
