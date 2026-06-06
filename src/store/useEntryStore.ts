@@ -1703,6 +1703,15 @@ export const useEntryStore = create<EntryStore>()(
         }));
       },
 
+      batchClearEmptyLinks: (entryIds: string[]) => {
+        set((state) => ({
+          entries: state.entries.map((entry) => {
+            if (!entryIds.includes(entry.id)) return entry;
+            return { ...entry, link: '', updatedAt: Date.now() };
+          }),
+        }));
+      },
+
       openDataAnalysis: () => {
         set({
           isDataAnalysisOpen: true,

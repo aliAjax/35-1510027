@@ -455,4 +455,5 @@ export interface LinkManagerStore {
   closeLinkManager: () => void;
   analyzeLinks: (entriesToAnalyze?: Entry[]) => LinkAnalysisResult;
   batchUpdateNotes: (entryIds: string[], notes: string) => void;
+  batchClearEmptyLinks: (entryIds: string[]) => void;
 }

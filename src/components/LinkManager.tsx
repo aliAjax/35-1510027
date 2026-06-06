@@ -14,6 +14,9 @@ import {
   AlertCircle,
   Copy,
   XCircle,
+  Edit3,
+  Trash2,
+  Filter,
 } from 'lucide-react';
 import { useEntryStore } from '../store/useEntryStore';
 import type { LinkInfo, LinkDomainGroup, LinkIssueType } from '../types';
@@ -24,7 +27,8 @@ export const LinkManager = () => {
     closeLinkManager,
     analyzeLinks,
     batchUpdateNotes,
-    openDetail,
+    batchClearEmptyLinks,
+    openForm,
     entries,
   } = useEntryStore();
 
@@ -32,6 +36,7 @@ export const LinkManager = () => {
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState<'all' | 'issues' | 'empty' | 'duplicate' | 'invalid'>('all');
+  const [filterDomain, setFilterDomain] = useState<string>('all');
   const [batchNotes, setBatchNotes] = useState('');
   const [showBatchNotes, setShowBatchNotes] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -42,6 +47,7 @@ export const LinkManager = () => {
       setSelectedLinks(new Set());
       setExpandedDomains(new Set());
       setFilterType('all');
+      setFilterDomain('all');
       setBatchNotes('');
       setShowBatchNotes(false);
       setSearchKeyword('');
@@ -50,7 +56,13 @@ export const LinkManager = () => {
 
   const analysisResult = useMemo(() => analyzeLinks(entries), [analyzeLinks, entries]);
 
-  const matchFilter = useCallback((link: LinkInfo): boolean => {
+  const allDomains = useMemo(() => {
+    const domains = new Set<string>();
+    analysisResult.allLinks.forEach((link) => domains.add(link.domain));
+    return Array.from(domains).sort();
+  }, [analysisResult]);
+
+  const matchFilterType = useCallback((link: LinkInfo): boolean => {
     switch (filterType) {
       case 'issues':
         return link.hasIssue;
@@ -64,6 +76,11 @@ export const LinkManager = () => {
         return true;
     }
   }, [filterType]);
+
+  const matchFilterDomain = useCallback((link: LinkInfo): boolean => {
+    if (filterDomain === 'all') return true;
+    return link.domain === filterDomain;
+  }, [filterDomain]);
 
   const matchSearch = useCallback((link: LinkInfo): boolean => {
     if (!searchKeyword) return true;
@@ -81,10 +98,10 @@ export const LinkManager = () => {
     return analysisResult.domainGroups
       .map((group) => ({
         ...group,
-        links: group.links.filter((l) => matchFilter(l) && matchSearch(l)),
+        links: group.links.filter((l) => matchFilterType(l) && matchFilterDomain(l) && matchSearch(l)),
       }))
       .filter((group) => group.links.length > 0);
-  }, [analysisResult, matchFilter, matchSearch]);
+  }, [analysisResult, matchFilterType, matchFilterDomain, matchSearch]);
 
   if (!isLinkManagerOpen) return null;
 
@@ -118,7 +135,7 @@ export const LinkManager = () => {
   };
 
   const selectAllInDomain = (domain: string, links: LinkInfo[]) => {
-    const filteredLinks = links.filter((l) => matchFilter(l) && matchSearch(l));
+    const filteredLinks = links.filter((l) => matchFilterType(l) && matchFilterDomain(l) && matchSearch(l));
     const allSelected = filteredLinks.every((l) => selectedLinks.has(l.entryId));
     
     setSelectedLinks((prev) => {
@@ -134,6 +151,21 @@ export const LinkManager = () => {
     });
   };
 
+  const selectAllFiltered = () => {
+    const allFilteredIds = new Set<string>();
+    filteredGroups.forEach((group) => {
+      group.links.forEach((l) => allFilteredIds.add(l.entryId));
+    });
+    
+    const currentAllSelected = Array.from(allFilteredIds).every((id) => selectedLinks.has(id));
+    
+    if (currentAllSelected) {
+      setSelectedLinks(new Set());
+    } else {
+      setSelectedLinks(allFilteredIds);
+    }
+  };
+
   const handleOpenLink = (link: string) => {
     if (link) {
       const url = link.startsWith('http') ? link : `https://${link}`;
@@ -141,11 +173,11 @@ export const LinkManager = () => {
     }
   };
 
-  const handleOpenDetail = (entryId: string) => {
+  const handleOpenEditForm = (entryId: string) => {
     const entry = entries.find((e) => e.id === entryId);
     if (entry) {
       closeModal();
-      setTimeout(() => openDetail(entry), 200);
+      setTimeout(() => openForm(entry), 200);
     }
   };
 
@@ -154,6 +186,13 @@ export const LinkManager = () => {
       batchUpdateNotes(Array.from(selectedLinks), batchNotes.trim());
       setBatchNotes('');
       setShowBatchNotes(false);
+      setSelectedLinks(new Set());
+    }
+  };
+
+  const handleBatchClearLinks = () => {
+    if (selectedLinks.size > 0) {
+      batchClearEmptyLinks(Array.from(selectedLinks));
       setSelectedLinks(new Set());
     }
   };
@@ -230,11 +269,11 @@ export const LinkManager = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => handleOpenDetail(linkInfo.entryId)}
+                  onClick={() => handleOpenEditForm(linkInfo.entryId)}
                   className="p-1.5 rounded-lg hover:bg-primary-100 text-gray-400 hover:text-primary-600 transition-colors"
-                  title="查看详情"
+                  title="编辑链接"
                 >
-                  <FileText size={14} />
+                  <Edit3 size={14} />
                 </button>
               </div>
             </div>
@@ -276,6 +315,7 @@ export const LinkManager = () => {
   const renderDomainGroup = (group: LinkDomainGroup) => {
     const isExpanded = expandedDomains.has(group.domain);
     const allSelected = group.links.every((l) => selectedLinks.has(l.entryId));
+    const someSelected = group.links.some((l) => selectedLinks.has(l.entryId));
 
     return (
       <div key={group.domain} className="mb-4">
@@ -284,6 +324,21 @@ export const LinkManager = () => {
           className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-primary-50 to-purple-50 border border-primary-100 cursor-pointer hover:shadow-sm transition-shadow"
         >
           <div className="flex items-center gap-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                selectAllInDomain(group.domain, group.links);
+              }}
+              className="text-gray-400 hover:text-primary-500 transition-colors"
+            >
+              {allSelected ? (
+                <CheckSquare size={18} className="text-primary-500" />
+              ) : someSelected ? (
+                <CheckSquare size={18} className="text-primary-300" />
+              ) : (
+                <Square size={18} />
+              )}
+            </button>
             <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600">
               <Globe size={18} />
             </div>
@@ -302,15 +357,6 @@ export const LinkManager = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                selectAllInDomain(group.domain, group.links);
-              }}
-              className="px-2 py-1 text-xs rounded-lg bg-white/80 border border-gray-200 text-gray-600 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-300 transition-colors"
-            >
-              {allSelected ? '取消全选' : '全选'}
-            </button>
             {isExpanded ? (
               <ChevronUp size={18} className="text-gray-400" />
             ) : (
@@ -327,6 +373,14 @@ export const LinkManager = () => {
       </div>
     );
   };
+
+  const allFilteredCount = filteredGroups.reduce((sum, g) => sum + g.links.length, 0);
+  const allFilteredSelected = filteredGroups.every((g) =>
+    g.links.every((l) => selectedLinks.has(l.entryId))
+  );
+  const someFilteredSelected = filteredGroups.some((g) =>
+    g.links.some((l) => selectedLinks.has(l.entryId))
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -345,7 +399,7 @@ export const LinkManager = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-display font-bold flex items-center gap-2">
               <Link2 size={22} />
-              链接管理
+              链接管理工作台
             </h2>
             <button
               onClick={closeModal}
@@ -372,32 +426,51 @@ export const LinkManager = () => {
               />
             </div>
 
-            <div className="flex items-center gap-1 flex-wrap">
-              {[
-                { key: 'all', label: '全部' },
-                { key: 'issues', label: '有问题' },
-                { key: 'empty', label: '空链接' },
-                { key: 'duplicate', label: '重复' },
-                { key: 'invalid', label: '格式异常' },
-              ].map((item) => (
-                <button
-                  key={item.key}
-                  onClick={() => setFilterType(item.key as typeof filterType)}
-                  className={`px-3 py-1.5 text-sm rounded-lg font-display transition-colors ${
-                    filterType === item.key
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-600'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-sm text-gray-500">
+                <Filter size={14} />
+                <span>域名:</span>
+              </div>
+              <select
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                className="input-field py-2 text-sm w-48"
+              >
+                <option value="all">全部域名</option>
+                {allDomains.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {domain}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          <div className="flex items-center gap-1 flex-wrap mt-3">
+            {[
+              { key: 'all', label: '全部' },
+              { key: 'issues', label: '有问题' },
+              { key: 'empty', label: '空链接' },
+              { key: 'duplicate', label: '重复' },
+              { key: 'invalid', label: '格式异常' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setFilterType(item.key as typeof filterType)}
+                className={`px-3 py-1.5 text-sm rounded-lg font-display transition-colors ${
+                  filterType === item.key
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-primary-100 hover:text-primary-600'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100">
-          <div className="grid grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-5 gap-3 text-sm">
             <div className="text-center">
               <div className="font-display font-bold text-lg text-primary-600">
                 {analysisResult.totalLinks}
@@ -422,15 +495,36 @@ export const LinkManager = () => {
               </div>
               <div className="text-xs text-gray-500">格式异常</div>
             </div>
+            <div className="text-center">
+              <div className="font-display font-bold text-lg text-purple-500">
+                {allDomains.length}
+              </div>
+              <div className="text-xs text-gray-500">域名数量</div>
+            </div>
           </div>
         </div>
 
         {selectedLinks.size > 0 && (
           <div className="px-6 py-3 bg-primary-50 border-b border-primary-100">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-display text-primary-700">
-                已选择 {selectedLinks.size} 条链接
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={selectAllFiltered}
+                  className="flex items-center gap-1.5 text-sm font-display text-primary-700 hover:text-primary-800 transition-colors"
+                >
+                  {allFilteredSelected ? (
+                    <CheckSquare size={16} className="text-primary-500" />
+                  ) : someFilteredSelected ? (
+                    <CheckSquare size={16} className="text-primary-300" />
+                  ) : (
+                    <Square size={16} />
+                  )}
+                  全选当前筛选 ({allFilteredCount})
+                </button>
+                <span className="text-sm font-display text-primary-700">
+                  已选择 {selectedLinks.size} 条链接
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowBatchNotes(!showBatchNotes)}
@@ -438,6 +532,13 @@ export const LinkManager = () => {
                 >
                   <FileText size={14} />
                   批量补充备注
+                </button>
+                <button
+                  onClick={handleBatchClearLinks}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors font-display"
+                >
+                  <Trash2 size={14} />
+                  批量清空链接
                 </button>
               </div>
             </div>
@@ -476,7 +577,9 @@ export const LinkManager = () => {
                 <Link2 size={28} />
               </div>
               <p className="text-gray-500 font-display">
-                {searchKeyword ? '没有找到匹配的链接' : '暂无符合条件的链接'}
+                {searchKeyword || filterDomain !== 'all' || filterType !== 'all'
+                  ? '没有找到匹配的链接'
+                  : '暂无符合条件的链接'}
               </p>
             </div>
           )}
