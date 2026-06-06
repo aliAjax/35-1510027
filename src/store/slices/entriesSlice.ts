@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Entry, EntryStore, CustomTag, ReadStatus, EntryType, CompletionStatus, FlavorTag, Rating } from '../../types';
+import type { Entry, EntryStore, CustomTag, ReadStatus } from '../../types';
 import { generateId } from './utils';
 
 export const createEntriesSlice: StateCreator<

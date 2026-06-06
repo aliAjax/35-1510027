@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { EntryStore, ReadingPlanItem, Entry } from '../../types';
+import type { EntryStore, ReadingPlanItem } from '../../types';
 
 export const createReadingPlanSlice: StateCreator<
   EntryStore,

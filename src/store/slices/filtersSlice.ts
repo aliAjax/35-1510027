@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { EntryStore, FilterState, FilterFavorite, SortOption, Entry, FlavorTag, EntryType, CompletionStatus, ReadStatus, RatingFilter, Rating } from '../../types';
+import type { EntryStore, FilterState, FilterFavorite, SortOption, Entry } from '../../types';
 import { ENTRY_TYPES, COMPLETION_STATUSES, READ_STATUSES, FLAVOR_TAGS } from '../../types';
 import { defaultFilters, defaultSortOption, READ_STATUS_ORDER } from './utils';
 import { generateId } from './utils';

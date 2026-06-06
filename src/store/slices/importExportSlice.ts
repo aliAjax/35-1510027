@@ -11,8 +11,6 @@ import type {
   ReadingPlanItem,
   FilterFavorite,
   KanbanViewMode,
-  FilterState,
-  Rating,
   RatingFilter,
   Entry,
 } from '../../types';

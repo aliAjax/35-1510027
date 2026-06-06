@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { EntryStore, LinkAnalysisResult, LinkInfo, LinkDomainGroup, Entry, LinkIssue, LinkIssueType } from '../../types';
+import type { EntryStore, LinkAnalysisResult, LinkInfo, LinkDomainGroup, Entry, LinkIssue } from '../../types';
 
 export const createLinkManagerSlice: StateCreator<
   EntryStore,
